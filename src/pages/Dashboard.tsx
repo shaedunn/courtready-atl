@@ -1,25 +1,30 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Search, Droplets, MapPin } from "lucide-react";
-import { COURTS, getLatestReport } from "@/lib/courts";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import type { Tables } from "@/integrations/supabase/types";
 
-function getStatusColor(report: ReturnType<typeof getLatestReport>) {
+type Court = Tables<"courts">;
+type Report = Tables<"reports">;
+
+function getStatusColor(report: Report | null) {
   if (!report) return "bg-muted-foreground/30";
-  const age = (Date.now() - report.timestamp) / 60000;
-  if (age > 180) return "bg-muted-foreground/30"; // stale
-  if (report.estimatedDryMinutes <= 0) return "bg-court-green";
-  const remaining = report.estimatedDryMinutes - age;
+  const age = (Date.now() - new Date(report.created_at).getTime()) / 60000;
+  if (age > 180) return "bg-muted-foreground/30";
+  if (report.estimated_dry_minutes <= 0) return "bg-court-green";
+  const remaining = report.estimated_dry_minutes - age;
   if (remaining <= 0) return "bg-court-green";
   if (remaining <= 30) return "bg-court-amber";
   return "bg-court-red";
 }
 
-function getStatusText(report: ReturnType<typeof getLatestReport>) {
+function getStatusText(report: Report | null) {
   if (!report) return "No report";
-  const age = (Date.now() - report.timestamp) / 60000;
+  const age = (Date.now() - new Date(report.created_at).getTime()) / 60000;
   if (age > 180) return "No report";
-  if (report.estimatedDryMinutes <= 0) return "Dry";
-  const remaining = Math.max(0, report.estimatedDryMinutes - age);
+  if (report.estimated_dry_minutes <= 0) return "Dry";
+  const remaining = Math.max(0, report.estimated_dry_minutes - age);
   if (remaining <= 0) return "Dry";
   return `~${Math.round(remaining)}m to dry`;
 }
@@ -28,14 +33,34 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
-  // Force re-render to get fresh reports
-  const [, setTick] = useState(0);
-  useMemo(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 30000);
-    return () => clearInterval(id);
-  }, []);
+  const { data: courts = [] } = useQuery({
+    queryKey: ["courts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("courts").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  const filtered = COURTS.filter(
+  const { data: latestReports = {} } = useQuery({
+    queryKey: ["latest-reports"],
+    queryFn: async () => {
+      // Get latest report per court
+      const { data, error } = await supabase
+        .from("reports")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, Report> = {};
+      for (const r of data) {
+        if (!map[r.court_id]) map[r.court_id] = r;
+      }
+      return map;
+    },
+    refetchInterval: 30000,
+  });
+
+  const filtered = courts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.location.toLowerCase().includes(search.toLowerCase())
@@ -43,7 +68,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4 pt-safe">
         <div className="max-w-lg mx-auto py-4">
           <div className="flex items-center gap-2 mb-1">
@@ -51,7 +75,6 @@ export default function Dashboard() {
             <h1 className="text-lg font-bold tracking-tight">CourtReady <span className="text-primary">ATL</span></h1>
           </div>
           <p className="text-xs text-muted-foreground tracking-wide uppercase mb-4">Atlanta Court Conditions</p>
-          
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
@@ -65,14 +88,13 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Court List */}
       <main className="max-w-lg mx-auto px-4 py-4 space-y-2">
         {filtered.map((court) => {
-          const report = getLatestReport(court.id);
+          const report = latestReports[court.id] || null;
           return (
             <button
               key={court.id}
-              onClick={() => navigate(`/court/${court.id}`)}
+              onClick={() => navigate(`/court/${court.slug}`)}
               className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-primary/30 transition-all active:scale-[0.98] card-glow"
             >
               <div className="flex items-start justify-between gap-3">
@@ -82,7 +104,7 @@ export default function Dashboard() {
                     <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                     <span className="text-xs text-muted-foreground truncate">{court.location}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground mt-1 block">{court.courts} courts · {court.surface}</span>
+                  <span className="text-xs text-muted-foreground mt-1 block">{court.court_count} courts · {court.surface}</span>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                   <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(report)} status-pulse`} />
