@@ -150,6 +150,54 @@ export type Database = {
           },
         ]
       }
+      weather_cache: {
+        Row: {
+          cache_key: string
+          description: string | null
+          humidity: number | null
+          icon: string | null
+          id: string
+          last_requested_at: string
+          lat: number
+          lon: number
+          rain_1h: number | null
+          raw_payload: Json
+          temp: number | null
+          updated_at: string
+          wind_speed: number | null
+        }
+        Insert: {
+          cache_key: string
+          description?: string | null
+          humidity?: number | null
+          icon?: string | null
+          id?: string
+          last_requested_at?: string
+          lat: number
+          lon: number
+          rain_1h?: number | null
+          raw_payload?: Json
+          temp?: number | null
+          updated_at?: string
+          wind_speed?: number | null
+        }
+        Update: {
+          cache_key?: string
+          description?: string | null
+          humidity?: number | null
+          icon?: string | null
+          id?: string
+          last_requested_at?: string
+          lat?: number
+          lon?: number
+          rain_1h?: number | null
+          raw_payload?: Json
+          temp?: number | null
+          updated_at?: string
+          wind_speed?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
