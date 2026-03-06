@@ -13,8 +13,9 @@ export default function SplashScreen({ onComplete, queryClient }: SplashScreenPr
   useEffect(() => {
     // Pre-fetch weather data for Leslie Beach Club (pilot phase)
     // TODO: Metro View - loop through anchor clubs (Buckhead, Decatur, Marietta)
-    supabase.functions.invoke("get-weather", {
-      body: { lat: 33.8195, lon: -84.3397 },
+    const ts = Date.now();
+    supabase.functions.invoke(`get-weather?t=${ts}`, {
+      body: { lat: 33.8195, lon: -84.3397, t: ts },
     });
 
     // Pre-warm React Query cache

@@ -50,11 +50,13 @@ export default function ReportForm({
       return;
     }
     setWeatherLoading(true);
+    const ts = Date.now();
     supabase.functions
-      .invoke("get-weather", {
-        body: { lat: court.latitude, lon: court.longitude },
+      .invoke(`get-weather?t=${ts}`, {
+        body: { lat: court.latitude, lon: court.longitude, t: ts },
       })
       .then(({ data, error }) => {
+        console.log("[ReportForm] get-weather response:", JSON.stringify(data), "error:", error);
         if (error || !data?.temp) {
           setWeatherError("Could not fetch weather");
         } else {
