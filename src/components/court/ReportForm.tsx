@@ -28,6 +28,12 @@ export default function ReportForm({
   const [hindrances, setHindrances] = useState<Hindrance[]>([]);
   const [observations, setObservations] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
+
+  // Manual weather entry (fallback when API is down)
+  const [manualTemp, setManualTemp] = useState("");
+  const [manualHumidity, setManualHumidity] = useState("");
+  const [manualWind, setManualWind] = useState("");
+  const isManualEntry = !weather && weatherError !== null && !weatherLoading;
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
