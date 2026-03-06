@@ -71,9 +71,10 @@ export default function ReportForm({
       const rain = parseFloat(rainfall);
       if (isNaN(rain) || rain < 0) throw new Error("Invalid rainfall");
 
-      const temp = weather?.temp ?? 70;
-      const hum = weather?.humidity ?? 50;
-      const wind = weather?.wind_speed ?? 0;
+      if (!weather) throw new Error("Cannot submit without live weather data");
+      const temp = weather.temp;
+      const hum = weather.humidity;
+      const wind = weather.wind_speed;
 
       const dryTime = calculateDryTime(
         rain,
@@ -132,11 +133,8 @@ export default function ReportForm({
   // Live preview dry time
   const previewDryTime = (() => {
     const rain = parseFloat(rainfall);
-    if (isNaN(rain) || rain <= 0) return null;
-    const temp = weather?.temp ?? 70;
-    const hum = weather?.humidity ?? 50;
-    const wind = weather?.wind_speed ?? 0;
-    return calculateDryTime(rain, squeegee, temp, hum, wind, sunExposure, drainage, hindrances);
+    if (isNaN(rain) || rain <= 0 || !weather) return null;
+    return calculateDryTime(rain, squeegee, weather.temp, weather.humidity, weather.wind_speed, sunExposure, drainage, hindrances);
   })();
 
   const inputClasses =
@@ -155,9 +153,9 @@ export default function ReportForm({
             <Cloud className="w-3 h-3 mr-1" /> Fetching weather…
           </Badge>
         )}
-        {weatherError && (
+        {weatherError && !weather && (
           <Badge variant="destructive">
-            <Cloud className="w-3 h-3 mr-1" /> {weatherError}
+            <Cloud className="w-3 h-3 mr-1" /> Offline — no weather data
           </Badge>
         )}
         {weather && (
@@ -315,7 +313,7 @@ export default function ReportForm({
         </button>
         <button
           onClick={() => submitMutation.mutate()}
-          disabled={submitMutation.isPending}
+          disabled={submitMutation.isPending || !weather}
           className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {submitMutation.isPending ? "Submitting..." : "Submit"}
