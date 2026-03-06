@@ -1,60 +1,54 @@
 
+Goal: remove any chance of stale weather responses, expose the exact payload shape, and persist every weather call to a backend cache table.
 
-## Dunn Law -- Dry Time Engine Upgrade
+What I verified in the current code/runtime:
+- The app is already calling the live backend function via `supabase.functions.invoke("get-weather")` (no local `/functions/get-weather` route found).
+- Current function response shape (live call):
+  `{"description":"scattered clouds","humidity":88,"icon":"03n","rain_1h":0,"temp":59.83,"wind_speed":0}`
+- There is no `weather_cache` table in the database right now.
+- `get-weather` currently does not write to the database at all (no upsert logic exists).
 
-### Overview
-Replace the current sky-condition-based formula with the physics-driven "Dunn Law" engine. Weather variables (temp, humidity, wind) are auto-fetched from the weather API. Sun exposure and drainage are stored as court-level defaults but can be toggled by the captain in the report form.
+Implementation plan:
 
-### Database Changes
+1) Add a `weather_cache` table (schema migration)
+- Create `public.weather_cache` with fields like:
+  - `id` uuid PK
+  - `lat` double precision not null
+  - `lon` double precision not null
+  - `cache_key` text not null unique (derived from normalized lat/lon)
+  - `temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`
+  - `raw_payload` jsonb not null
+  - `last_requested_at` timestamptz not null default now()
+  - `updated_at` timestamptz not null default now()
+- Enable RLS and keep table write-protected from clients (no public insert/update policies), so only backend function writes.
 
-**1. `courts` table -- add two columns:**
-- `sun_exposure` (double precision, default 0.75, not null) -- scale 0 to 1
-- `drainage` (double precision, default 0.5, not null) -- scale 0 to 1
+2) Update `get-weather` edge function to always write on every request
+- Parse cache-bust token from query `t` and/or body `t`.
+- Call OpenWeather with an added nonce param (e.g. `&_=${t || Date.now()}`) and `Cache-Control: no-store` request header.
+- Build normalized response object (`temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`).
+- Initialize backend client inside function with server credentials and perform `upsert` into `weather_cache` using `cache_key` conflict target.
+- Always update `last_requested_at` + `updated_at` so each function call leaves an auditable write.
 
-**2. `reports` table -- add columns for weather snapshot + overrides:**
-- `temperature` (double precision, nullable) -- degrees F at report time
-- `humidity` (double precision, nullable) -- percentage
-- `wind_speed` (double precision, nullable) -- mph
-- `sun_exposure` (double precision, nullable) -- override value used
-- `drainage` (double precision, nullable) -- override value used
+3) Update frontend invocations to include timestamp cache-bust
+- `src/components/court/ReportForm.tsx`:
+  - change to `supabase.functions.invoke(\`get-weather?t=${Date.now()}\`, { body: { lat, lon, t: Date.now() } })`
+- `src/components/SplashScreen.tsx`:
+  - same timestamped invoke pattern for prefetch call
+- Keep existing UX behavior (weather badge + error states).
 
-The existing `sky_condition` column stays for backward compatibility but becomes secondary.
+4) Expose exact JSON received for debugging
+- Add temporary debug logging in `ReportForm` (or guarded dev-only panel) to print/display the exact JSON returned from the function before any transformation.
+- Add function-side `console.log` for request coordinates and normalized payload to make logs useful.
 
-### Engine: `src/lib/courts.ts`
+5) Validate end-to-end after implementation
+- Trigger weather fetch from `/court/leslie-beach-club`.
+- Confirm network requests include `?t=<timestamp>`.
+- Confirm function response JSON matches displayed/debugged payload.
+- Run read query:
+  - `select cache_key, temp, humidity, wind_speed, last_requested_at, updated_at from public.weather_cache order by updated_at desc limit 10;`
+- Re-fetch immediately and verify `updated_at` changes on each call.
 
-Replace `calculateDryTime` with the Dunn Law formula:
-
-```text
-effectiveRain = rainfall * squeegee_factor
-tempFactor = temp / 70
-humidityFactor = (100 - humidity) / 100
-windFactor = 1 + (wind / 10)
-evapPower = tempFactor * humidityFactor * windFactor * sunExposure * drainage
-minutes = (effectiveRain * 45) / evapPower
-result = round(minutes * hindranceFactor)
-```
-
-Keep `HINDRANCE_OPTIONS` and the max-hindrance-multiplier logic unchanged. Remove `SKY_FACTOR`.
-
-### Report Form (`CourtDetail.tsx`)
-
-**Removed:** Sky Conditions dropdown.
-
-**Auto-fetched on form mount:** Call `get-weather` edge function with the court's `lat`/`lon`. Display a small weather badge showing the fetched temp, humidity, and wind (read-only, for transparency).
-
-**New toggles:** Sun Exposure and Drainage sliders pre-filled from the court's defaults. Captain can adjust if ground conditions differ (e.g., temporary shade from construction, clogged drains).
-
-**On submit:** Pass all values into the new `calculateDryTime`. Store the weather snapshot and overrides in the report row for audit.
-
-### Preview in form
-
-The live "Estimated dry time" preview at the bottom of the form will update using the new formula once weather data loads.
-
-### StatusCard
-
-No changes needed -- it already reads `estimated_dry_minutes` from the report.
-
-### Splash pre-fetch
-
-No changes -- the existing weather pre-fetch warms the edge function cache.
-
+Technical details:
+- No changes to generated Supabase client file (`src/integrations/supabase/client.ts`), per platform constraints.
+- This approach keeps weather reads public while restricting cache-table writes to backend logic only.
+- If you want per-court cache rows instead of per-lat/lon rows, I can switch `cache_key` to `court_id` in the same implementation pass.
