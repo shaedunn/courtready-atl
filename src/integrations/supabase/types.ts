@@ -50,34 +50,40 @@ export type Database = {
         Row: {
           court_count: number
           created_at: string
+          drainage: number
           id: string
           latitude: number | null
           location: string
           longitude: number | null
           name: string
           slug: string
+          sun_exposure: number
           surface: string
         }
         Insert: {
           court_count?: number
           created_at?: string
+          drainage?: number
           id?: string
           latitude?: number | null
           location: string
           longitude?: number | null
           name: string
           slug: string
+          sun_exposure?: number
           surface?: string
         }
         Update: {
           court_count?: number
           created_at?: string
+          drainage?: number
           id?: string
           latitude?: number | null
           location?: string
           longitude?: number | null
           name?: string
           slug?: string
+          sun_exposure?: number
           surface?: string
         }
         Relationships: []
@@ -87,37 +93,52 @@ export type Database = {
           abstract_observations: string | null
           court_id: string
           created_at: string
+          drainage: number | null
           estimated_dry_minutes: number
           hindrances: string[]
+          humidity: number | null
           id: string
           photo_url: string | null
           rainfall: number
           sky_condition: string
           squeegee_count: number
+          sun_exposure: number | null
+          temperature: number | null
+          wind_speed: number | null
         }
         Insert: {
           abstract_observations?: string | null
           court_id: string
           created_at?: string
+          drainage?: number | null
           estimated_dry_minutes: number
           hindrances?: string[]
+          humidity?: number | null
           id?: string
           photo_url?: string | null
           rainfall: number
           sky_condition: string
           squeegee_count?: number
+          sun_exposure?: number | null
+          temperature?: number | null
+          wind_speed?: number | null
         }
         Update: {
           abstract_observations?: string | null
           court_id?: string
           created_at?: string
+          drainage?: number | null
           estimated_dry_minutes?: number
           hindrances?: string[]
+          humidity?: number | null
           id?: string
           photo_url?: string | null
           rainfall?: number
           sky_condition?: string
           squeegee_count?: number
+          sun_exposure?: number | null
+          temperature?: number | null
+          wind_speed?: number | null
         }
         Relationships: [
           {

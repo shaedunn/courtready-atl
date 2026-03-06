@@ -1,14 +1,13 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, Clock, Send, CloudRain, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock, CloudRain, Send, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { calculateDryTime, HINDRANCE_OPTIONS, type Hindrance } from "@/lib/courts";
 import type { Tables } from "@/integrations/supabase/types";
+import ReportForm from "@/components/court/ReportForm";
 
 type Court = Tables<"courts">;
 type Report = Tables<"reports">;
-type CourtLog = Tables<"court_logs">;
 
 function StatusCard({ report }: { report: Report | null }) {
   const dryTime = report
@@ -37,14 +36,6 @@ function StatusCard({ report }: { report: Report | null }) {
             <span>Rain: {report!.rainfall}mm</span>
             <span>·</span>
             <span>Squeegees: {report!.squeegee_count}</span>
-            <span>·</span>
-            <span>{report!.sky_condition}</span>
-            {report!.hindrances.length > 0 && report!.hindrances[0] !== "none" && (
-              <>
-                <span>·</span>
-                <span>Hindrances: {report!.hindrances.length}</span>
-              </>
-            )}
           </div>
         </div>
       ) : dryTime !== null && dryTime <= 0 ? (
@@ -56,146 +47,6 @@ function StatusCard({ report }: { report: Report | null }) {
       ) : (
         <p className="text-center text-sm text-muted-foreground py-2">No recent reports</p>
       )}
-    </div>
-  );
-}
-
-function ReportForm({ court, onSubmitted }: { court: Court; onSubmitted: () => void }) {
-  const [rainfall, setRainfall] = useState("");
-  const [squeegee, setSqueegee] = useState<0 | 1 | 2>(0);
-  const [sky, setSky] = useState<"Clear" | "Partial" | "Overcast">("Clear");
-  const [hindrances, setHindrances] = useState<Hindrance[]>([]);
-  const [observations, setObservations] = useState("");
-  const [photo, setPhoto] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
-
-  const submitMutation = useMutation({
-    mutationFn: async () => {
-      const rain = parseFloat(rainfall);
-      if (isNaN(rain) || rain < 0) throw new Error("Invalid rainfall");
-      const dryTime = calculateDryTime(rain, squeegee, sky, hindrances);
-      const { error } = await supabase.from("reports").insert({
-        court_id: court.id,
-        rainfall: rain,
-        squeegee_count: squeegee,
-        sky_condition: sky,
-        hindrances: hindrances,
-        abstract_observations: observations.trim() || null,
-        photo_url: photo || null,
-        estimated_dry_minutes: dryTime,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["latest-report", court.slug] });
-      queryClient.invalidateQueries({ queryKey: ["latest-reports"] });
-      onSubmitted();
-    },
-  });
-
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPhoto(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const toggleHindrance = (h: Hindrance) => {
-    if (h === "none") {
-      setHindrances(["none"]);
-      return;
-    }
-    setHindrances((prev) => {
-      const without = prev.filter((v) => v !== "none");
-      return without.includes(h) ? without.filter((v) => v !== h) : [...without, h];
-    });
-  };
-
-  return (
-    <div className="bg-card rounded-lg p-5 border border-border space-y-4 card-glow">
-      <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Captain's Report</h3>
-
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">Rainfall (mm)</label>
-        <input type="number" min="0" step="0.5" value={rainfall} onChange={(e) => setRainfall(e.target.value)} placeholder="e.g. 5"
-          className="w-full bg-secondary text-foreground rounded-lg px-3 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50" />
-      </div>
-
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">Squeegee Count</label>
-        <select value={squeegee} onChange={(e) => setSqueegee(Number(e.target.value) as 0 | 1 | 2)}
-          className="w-full bg-secondary text-foreground rounded-lg px-3 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50">
-          <option value={0}>0 — No squeegee</option>
-          <option value={1}>1 — One pass</option>
-          <option value={2}>2 — Two passes</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">Sky Conditions</label>
-        <select value={sky} onChange={(e) => setSky(e.target.value as typeof sky)}
-          className="w-full bg-secondary text-foreground rounded-lg px-3 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50">
-          <option>Clear</option>
-          <option>Partial</option>
-          <option>Overcast</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">Physical Hindrances</label>
-        <div className="flex flex-wrap gap-2">
-          {HINDRANCE_OPTIONS.map((opt) => (
-            <button key={opt.value} type="button" onClick={() => toggleHindrance(opt.value)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                hindrances.includes(opt.value)
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
-              }`}>
-              {opt.label} ({opt.multiplier}x)
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">Abstract Observations</label>
-        <textarea value={observations} onChange={(e) => setObservations(e.target.value)} placeholder="Tribal knowledge, specific court notes..."
-          rows={3}
-          className="w-full bg-secondary text-foreground rounded-lg px-3 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none" />
-      </div>
-
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">Photo</label>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
-        <button onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary rounded-lg px-3 py-2.5 border border-border hover:border-primary/30 transition-colors w-full">
-          <Camera className="w-4 h-4" />
-          {photo ? "Photo captured ✓" : "Take or upload photo"}
-        </button>
-        {photo && <img src={photo} alt="Court photo" className="mt-2 rounded-lg w-full h-32 object-cover" />}
-      </div>
-
-      {rainfall && parseFloat(rainfall) > 0 && (
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <span className="text-xs text-muted-foreground">Estimated dry time: </span>
-          <span className="text-sm font-bold font-mono text-primary">
-            {calculateDryTime(parseFloat(rainfall), squeegee, sky, hindrances)} min
-          </span>
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <button onClick={onSubmitted}
-          className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-lg text-sm font-medium hover:brightness-110 transition-all">
-          Cancel
-        </button>
-        <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}
-          className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50">
-          {submitMutation.isPending ? "Submitting..." : "Submit"}
-        </button>
-      </div>
     </div>
   );
 }
