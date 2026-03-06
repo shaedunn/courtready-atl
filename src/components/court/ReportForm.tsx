@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, Cloud, Thermometer, Droplets, Wind } from "lucide-react";
+import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { calculateDryTime, HINDRANCE_OPTIONS, type Hindrance } from "@/lib/courts";
@@ -28,12 +28,6 @@ export default function ReportForm({
   const [hindrances, setHindrances] = useState<Hindrance[]>([]);
   const [observations, setObservations] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
-
-  // Manual weather entry (fallback when API is down)
-  const [manualTemp, setManualTemp] = useState("");
-  const [manualHumidity, setManualHumidity] = useState("");
-  const [manualWind, setManualWind] = useState("");
-  const isManualEntry = !weather && weatherError !== null && !weatherLoading;
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -49,6 +43,12 @@ export default function ReportForm({
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  // Manual weather entry (fallback when API is down)
+  const [manualTemp, setManualTemp] = useState("");
+  const [manualHumidity, setManualHumidity] = useState("");
+  const [manualWind, setManualWind] = useState("");
+  const isManualEntry = !weather && !!weatherError && !weatherLoading;
 
   useEffect(() => {
     if (!court.latitude || !court.longitude) {
@@ -72,39 +72,54 @@ export default function ReportForm({
       .finally(() => setWeatherLoading(false));
   }, [court.latitude, court.longitude]);
 
+  // Resolve effective weather: live or manual
+  const getEffectiveWeather = (): { temp: number; humidity: number; wind_speed: number; description: string; isManual: boolean } | null => {
+    if (weather) {
+      return { temp: weather.temp, humidity: weather.humidity, wind_speed: weather.wind_speed, description: weather.description ?? "Live", isManual: false };
+    }
+    if (isManualEntry) {
+      const t = parseFloat(manualTemp);
+      const h = parseFloat(manualHumidity);
+      const w = parseFloat(manualWind);
+      if (!isNaN(t) && !isNaN(h) && !isNaN(w)) {
+        return { temp: t, humidity: h, wind_speed: w, description: "Manual Entry", isManual: true };
+      }
+    }
+    return null;
+  };
+
+  const effectiveWeather = getEffectiveWeather();
+  const manualReady = isManualEntry && effectiveWeather !== null;
+
   const submitMutation = useMutation({
     mutationFn: async () => {
       const rain = parseFloat(rainfall);
       if (isNaN(rain) || rain < 0) throw new Error("Invalid rainfall");
 
-      if (!weather) throw new Error("Cannot submit without live weather data");
-      const temp = weather.temp;
-      const hum = weather.humidity;
-      const wind = weather.wind_speed;
+      const ew = getEffectiveWeather();
+      if (!ew) throw new Error("Weather data required — enter manually or wait for API");
 
       const dryTime = calculateDryTime(
-        rain,
-        squeegee,
-        temp,
-        hum,
-        wind,
-        sunExposure,
-        drainage,
-        hindrances
+        rain, squeegee, ew.temp, ew.humidity, ew.wind_speed,
+        sunExposure, drainage, hindrances
       );
+
+      const obs = ew.isManual
+        ? `[Manual Entry] ${observations.trim() || ""}`
+        : observations.trim() || null;
 
       const { error } = await supabase.from("reports").insert({
         court_id: court.id,
         rainfall: rain,
         squeegee_count: squeegee,
-        sky_condition: weather?.description ?? "Unknown",
+        sky_condition: ew.description,
         hindrances: hindrances,
-        abstract_observations: observations.trim() || null,
+        abstract_observations: obs,
         photo_url: photo || null,
         estimated_dry_minutes: dryTime,
-        temperature: weather?.temp ?? null,
-        humidity: weather?.humidity ?? null,
-        wind_speed: weather?.wind_speed ?? null,
+        temperature: ew.temp,
+        humidity: ew.humidity,
+        wind_speed: ew.wind_speed,
         sun_exposure: sunExposure,
         drainage: drainage,
       } as any);
@@ -126,10 +141,7 @@ export default function ReportForm({
   };
 
   const toggleHindrance = (h: Hindrance) => {
-    if (h === "none") {
-      setHindrances(["none"]);
-      return;
-    }
+    if (h === "none") { setHindrances(["none"]); return; }
     setHindrances((prev) => {
       const without = prev.filter((v) => v !== "none");
       return without.includes(h) ? without.filter((v) => v !== h) : [...without, h];
@@ -139,9 +151,12 @@ export default function ReportForm({
   // Live preview dry time
   const previewDryTime = (() => {
     const rain = parseFloat(rainfall);
-    if (isNaN(rain) || rain <= 0 || !weather) return null;
-    return calculateDryTime(rain, squeegee, weather.temp, weather.humidity, weather.wind_speed, sunExposure, drainage, hindrances);
+    const ew = getEffectiveWeather();
+    if (isNaN(rain) || rain <= 0 || !ew) return null;
+    return calculateDryTime(rain, squeegee, ew.temp, ew.humidity, ew.wind_speed, sunExposure, drainage, hindrances);
   })();
+
+  const canSubmit = !submitMutation.isPending && (!!weather || manualReady);
 
   const inputClasses =
     "w-full bg-secondary text-foreground rounded-lg px-3 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50";
@@ -159,9 +174,14 @@ export default function ReportForm({
             <Cloud className="w-3 h-3 mr-1" /> Fetching weather…
           </Badge>
         )}
-        {weatherError && !weather && (
+        {isManualEntry && !manualReady && (
           <Badge variant="destructive">
-            <Cloud className="w-3 h-3 mr-1" /> Offline — no weather data
+            <AlertTriangle className="w-3 h-3 mr-1" /> Offline — manual entry below
+          </Badge>
+        )}
+        {isManualEntry && manualReady && (
+          <Badge variant="outline" className="border-accent text-accent-foreground">
+            <AlertTriangle className="w-3 h-3 mr-1" /> Manual Entry
           </Badge>
         )}
         {weather && (
@@ -179,28 +199,61 @@ export default function ReportForm({
         )}
       </div>
 
+      {/* Manual weather inputs when offline */}
+      {isManualEntry && (
+        <div className="bg-destructive/10 rounded-lg p-3 space-y-3 border border-destructive/20">
+          <p className="text-xs font-medium text-destructive">
+            Weather API offline — enter conditions manually
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[10px] text-muted-foreground block mb-1">Temp (°F)</label>
+              <input
+                type="number"
+                value={manualTemp}
+                onChange={(e) => setManualTemp(e.target.value)}
+                placeholder="73"
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground block mb-1">Humidity (%)</label>
+              <input
+                type="number"
+                value={manualHumidity}
+                onChange={(e) => setManualHumidity(e.target.value)}
+                placeholder="1"
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground block mb-1">Wind (mph)</label>
+              <input
+                type="number"
+                value={manualWind}
+                onChange={(e) => setManualWind(e.target.value)}
+                placeholder="5"
+                className={inputClasses}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Rainfall */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Rainfall (mm)</label>
         <input
-          type="number"
-          min="0"
-          step="0.5"
-          value={rainfall}
-          onChange={(e) => setRainfall(e.target.value)}
-          placeholder="e.g. 5"
-          className={inputClasses}
+          type="number" min="0" step="0.5"
+          value={rainfall} onChange={(e) => setRainfall(e.target.value)}
+          placeholder="e.g. 5" className={inputClasses}
         />
       </div>
 
       {/* Squeegee */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Squeegee Count</label>
-        <select
-          value={squeegee}
-          onChange={(e) => setSqueegee(Number(e.target.value) as 0 | 1 | 2)}
-          className={inputClasses}
-        >
+        <select value={squeegee} onChange={(e) => setSqueegee(Number(e.target.value) as 0 | 1 | 2)} className={inputClasses}>
           <option value={0}>0 — No squeegee</option>
           <option value={1}>1 — One pass</option>
           <option value={2}>2 — Two passes</option>
@@ -212,16 +265,12 @@ export default function ReportForm({
         <label className="text-xs text-muted-foreground block mb-1.5">Physical Hindrances</label>
         <div className="flex flex-wrap gap-2">
           {HINDRANCE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => toggleHindrance(opt.value)}
+            <button key={opt.value} type="button" onClick={() => toggleHindrance(opt.value)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                 hindrances.includes(opt.value)
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
-              }`}
-            >
+              }`}>
               {opt.label} ({opt.multiplier}x)
             </button>
           ))}
@@ -232,97 +281,57 @@ export default function ReportForm({
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-xs text-muted-foreground">Sun Exposure</label>
-          <span className="text-xs font-mono text-muted-foreground">
-            {Math.round(sunExposure * 100)}%
-          </span>
+          <span className="text-xs font-mono text-muted-foreground">{Math.round(sunExposure * 100)}%</span>
         </div>
-        <Slider
-          value={[sunExposure]}
-          onValueChange={([v]) => setSunExposure(v)}
-          min={0}
-          max={1}
-          step={0.05}
-        />
+        <Slider value={[sunExposure]} onValueChange={([v]) => setSunExposure(v)} min={0} max={1} step={0.05} />
       </div>
 
       {/* Drainage slider */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-xs text-muted-foreground">Drainage</label>
-          <span className="text-xs font-mono text-muted-foreground">
-            {Math.round(drainage * 100)}%
-          </span>
+          <span className="text-xs font-mono text-muted-foreground">{Math.round(drainage * 100)}%</span>
         </div>
-        <Slider
-          value={[drainage]}
-          onValueChange={([v]) => setDrainage(v)}
-          min={0}
-          max={1}
-          step={0.05}
-        />
+        <Slider value={[drainage]} onValueChange={([v]) => setDrainage(v)} min={0} max={1} step={0.05} />
       </div>
 
       {/* Observations */}
       <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">
-          Abstract Observations
-        </label>
-        <textarea
-          value={observations}
-          onChange={(e) => setObservations(e.target.value)}
-          placeholder="Tribal knowledge, specific court notes..."
-          rows={3}
-          className={`${inputClasses} resize-none`}
-        />
+        <label className="text-xs text-muted-foreground block mb-1.5">Abstract Observations</label>
+        <textarea value={observations} onChange={(e) => setObservations(e.target.value)}
+          placeholder="Tribal knowledge, specific court notes..." rows={3}
+          className={`${inputClasses} resize-none`} />
       </div>
 
       {/* Photo */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Photo</label>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handlePhoto}
-          className="hidden"
-        />
-        <button
-          onClick={() => fileRef.current?.click()}
-          className={`flex items-center gap-2 text-sm text-muted-foreground bg-secondary rounded-lg px-3 py-2.5 border border-border hover:border-primary/30 transition-colors w-full`}
-        >
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
+        <button onClick={() => fileRef.current?.click()}
+          className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary rounded-lg px-3 py-2.5 border border-border hover:border-primary/30 transition-colors w-full">
           <Camera className="w-4 h-4" />
           {photo ? "Photo captured ✓" : "Take or upload photo"}
         </button>
-        {photo && (
-          <img src={photo} alt="Court photo" className="mt-2 rounded-lg w-full h-32 object-cover" />
-        )}
+        {photo && <img src={photo} alt="Court photo" className="mt-2 rounded-lg w-full h-32 object-cover" />}
       </div>
 
       {/* Live preview */}
       {previewDryTime !== null && (
         <div className="bg-secondary/50 rounded-lg p-3 text-center">
           <span className="text-xs text-muted-foreground">Estimated dry time: </span>
-          <span className="text-sm font-bold font-mono text-primary">
-            {previewDryTime} min
-          </span>
+          <span className="text-sm font-bold font-mono text-primary">{previewDryTime} min</span>
         </div>
       )}
 
       {/* Actions */}
       <div className="flex gap-2">
-        <button
-          onClick={onSubmitted}
-          className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-lg text-sm font-medium hover:brightness-110 transition-all"
-        >
+        <button onClick={onSubmitted}
+          className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-lg text-sm font-medium hover:brightness-110 transition-all">
           Cancel
         </button>
-        <button
-          onClick={() => submitMutation.mutate()}
-          disabled={submitMutation.isPending || !weather}
-          className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {submitMutation.isPending ? "Submitting..." : "Submit"}
+        <button onClick={() => submitMutation.mutate()} disabled={!canSubmit}
+          className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50">
+          {submitMutation.isPending ? "Submitting..." : isManualEntry ? "Submit (Manual Entry)" : "Submit"}
         </button>
       </div>
     </div>
