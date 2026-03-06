@@ -18,8 +18,8 @@ if (!url || !url.startsWith("http") || !key) {
       <p style="margin-top:1rem;color:#888;">This is a live pilot — no fallback or mock data will be used.</p>
     </div>
   `;
-  throw new Error("Network Error: Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Cannot reach live backend.");
+} else {
+  import("./App.tsx").then(({ default: App }) => {
+    createRoot(document.getElementById("root")!).render(<App />);
+  });
 }
-
-import App from "./App.tsx";
-createRoot(document.getElementById("root")!).render(<App />);
