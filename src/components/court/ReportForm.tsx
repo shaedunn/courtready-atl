@@ -57,18 +57,25 @@ export default function ReportForm({
     }
     setWeatherLoading(true);
     const ts = Date.now();
-    supabase.functions
-      .invoke(`get-weather?t=${ts}`, {
-        body: { lat: court.latitude, lon: court.longitude, t: ts },
-      })
-      .then(({ data, error }) => {
-        console.log("[ReportForm] get-weather response:", JSON.stringify(data), "error:", error);
-        if (error || !data?.temp) {
+    fetch(`https://racdnnitrapgqozxctsk.supabase.co/functions/v1/get-weather?t=${ts}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
+      },
+      body: JSON.stringify({ lat: court.latitude, lon: court.longitude, t: ts }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        console.log("[ReportForm] get-weather response:", JSON.stringify(data));
+        if (!res.ok || !data?.temp) {
           setWeatherError("Could not fetch weather");
         } else {
           setWeather(data as WeatherData);
         }
       })
+      .catch(() => setWeatherError("Could not fetch weather"))
       .finally(() => setWeatherLoading(false));
   }, [court.latitude, court.longitude]);
 
