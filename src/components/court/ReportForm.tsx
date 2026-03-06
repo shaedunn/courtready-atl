@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { calculateDryTime, HINDRANCE_OPTIONS, type Hindrance } from "@/lib/courts";
 import { Slider } from "@/components/ui/slider";
