@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import ReportForm from "@/components/court/ReportForm";
 import SubCourtEditor from "@/components/court/SubCourtEditor";
+import type { SubCourtRow } from "@/types/supabase";
 
 type Report = Tables<"reports">;
 
