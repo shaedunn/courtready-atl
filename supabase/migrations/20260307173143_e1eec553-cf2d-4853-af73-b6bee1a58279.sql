@@ -1,0 +1,1 @@
+ALTER TABLE public.sub_courts RENAME COLUMN court_id TO facility_id;
