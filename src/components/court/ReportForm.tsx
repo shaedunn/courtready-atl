@@ -160,18 +160,32 @@ export default function ReportForm({
     <div className="bg-card rounded-lg p-5 border border-border space-y-4 card-glow">
       <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Captain's Report</h3>
 
-      <div className="flex flex-wrap gap-2">
-        {weatherLoading && <Badge variant="secondary" className="animate-pulse"><Cloud className="w-3 h-3 mr-1" /> Fetching weather…</Badge>}
-        {isManualEntry && !manualReady && <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" /> Offline — manual entry below</Badge>}
-        {isManualEntry && manualReady && <Badge variant="outline" className="border-accent text-accent-foreground"><AlertTriangle className="w-3 h-3 mr-1" /> Manual Entry</Badge>}
-        {weather && (
-          <>
-            <Badge variant="secondary"><Thermometer className="w-3 h-3 mr-1" /> {Math.round(weather.temp)}°F</Badge>
-            <Badge variant="secondary"><Droplets className="w-3 h-3 mr-1" /> {Math.round(weather.humidity)}%</Badge>
-            <Badge variant="secondary"><Wind className="w-3 h-3 mr-1" /> {Math.round(weather.wind_speed)} mph</Badge>
-          </>
-        )}
-      </div>
+      <TooltipProvider delayDuration={100}>
+        <div className="flex flex-wrap gap-2 items-center">
+          {weatherLoading && <Badge variant="secondary" className="animate-pulse"><Cloud className="w-3 h-3 mr-1" /> Fetching weather…</Badge>}
+          {isManualEntry && !manualReady && <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" /> Offline — manual entry below</Badge>}
+          {isManualEntry && manualReady && <Badge variant="outline" className="border-accent text-accent-foreground"><AlertTriangle className="w-3 h-3 mr-1" /> Manual Entry</Badge>}
+          {weather && (
+            <>
+              <Badge variant="secondary"><Thermometer className="w-3 h-3 mr-1" /> {Math.round(weather.temp)}°F</Badge>
+              <Badge variant="secondary"><Droplets className="w-3 h-3 mr-1" /> {Math.round(weather.humidity)}%</Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] text-xs">
+                  {weather.humidity >= 80
+                    ? `Calculated for hyper-local humidity (${Math.round(weather.humidity)}%). High moisture in the air significantly slows natural evaporation.`
+                    : weather.humidity >= 60
+                    ? `Humidity at ${Math.round(weather.humidity)}%. Moderate moisture — expect standard drying times.`
+                    : `Humidity at ${Math.round(weather.humidity)}%. Low moisture aids faster evaporation.`}
+                </TooltipContent>
+              </Tooltip>
+              <Badge variant="secondary"><Wind className="w-3 h-3 mr-1" /> {Math.round(weather.wind_speed)} mph</Badge>
+            </>
+          )}
+        </div>
+      </TooltipProvider>
 
       {isManualEntry && (
         <div className="bg-destructive/10 rounded-lg p-3 space-y-3 border border-destructive/20">
