@@ -47,15 +47,20 @@ export default function ReportForm({
   const { data: subCourts = [] } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", court.id],
     queryFn: async () => {
-      console.log("Fetching for Facility:", court.id);
-      const { data, error } = await (supabase.from("sub_courts") as any)
-        .select("*")
-        .eq("facility_id", court.id)
-        .order("court_number");
+      try {
+        console.log("Fetching for Facility:", court.id);
+        const { data, error } = await (supabase.from("sub_courts") as any)
+          .select("*")
+          .eq("facility_id", court.id)
+          .order("court_number");
 
-      if (error) throw error;
-      console.log("Raw Data Received:", data ?? []);
-      return (data ?? []) as SubCourt[];
+        if (error) throw error;
+        console.log("Raw Data Received:", data ?? []);
+        return (data ?? []) as SubCourt[];
+      } catch (error) {
+        console.error("[ReportForm] Failed to fetch sub_courts:", error);
+        throw error;
+      }
     },
   });
 
@@ -127,8 +132,8 @@ export default function ReportForm({
 
   // Use sub-court ratings if selected, otherwise facility defaults
   const selectedSubCourt = selectedCourtNumber !== null ? subCourts.find((sc) => sc.court_number === selectedCourtNumber) : null;
-  const sunExposure = selectedSubCourt ? selectedSubCourt.sun_exposure_rating : court.sun_exposure;
-  const baseDrainage = selectedSubCourt ? selectedSubCourt.drainage_rating : court.drainage;
+  const sunExposure = selectedSubCourt ? selectedSubCourt.sun_exposure : court.sun_exposure;
+  const baseDrainage = selectedSubCourt ? selectedSubCourt.drainage : court.drainage;
   const effectiveDrainage = debrisOnCourt ? baseDrainage * 0.8 : baseDrainage;
 
   const submitMutation = useMutation({

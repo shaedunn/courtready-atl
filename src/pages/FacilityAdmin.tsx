@@ -60,16 +60,21 @@ export default function FacilityAdmin() {
   const { data: subCourts = [], isLoading: subCourtsLoading } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", id],
     queryFn: async () => {
-      console.log("Fetching for Facility:", id);
+      try {
+        console.log("Fetching for Facility:", id);
 
-      const { data, error } = await (supabase.from("sub_courts") as any)
-        .select("*")
-        .eq("facility_id", id!)
-        .order("court_number");
+        const { data, error } = await (supabase.from("sub_courts") as any)
+          .select("*")
+          .eq("facility_id", id!)
+          .order("court_number");
 
-      if (error) throw error;
-      console.log("Raw Data Received:", data ?? []);
-      return (data ?? []) as SubCourt[];
+        if (error) throw error;
+        console.log("Raw Data Received:", data ?? []);
+        return (data ?? []) as SubCourt[];
+      } catch (error) {
+        console.error("[FacilityAdmin] Failed to fetch sub_courts:", error);
+        throw error;
+      }
     },
     enabled: !!id,
   });
@@ -89,7 +94,7 @@ export default function FacilityAdmin() {
     if (subCourts.length > 0) {
       const state: Record<number, { sun: number; drain: number; note: string }> = {};
       for (const sc of subCourts) {
-        state[sc.court_number] = { sun: sc.sun_exposure_rating, drain: sc.drainage_rating, note: sc.permanent_note || "" };
+        state[sc.court_number] = { sun: sc.sun_exposure, drain: sc.drainage, note: sc.permanent_note || "" };
       }
       setEditState(state);
     }
@@ -101,8 +106,8 @@ export default function FacilityAdmin() {
       const inserts = numbers.map((n) => ({
         facility_id: id!,
         court_number: n,
-        sun_exposure_rating: 3,
-        drainage_rating: 3,
+        sun_exposure: 3,
+        drainage: 3,
       }));
 
       const { error } = await (supabase.from("sub_courts") as any).insert(inserts);
@@ -118,7 +123,7 @@ export default function FacilityAdmin() {
   const saveMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drain, note }: { courtNumber: number; sun: number; drain: number; note: string }) => {
       const { error } = await (supabase.from("sub_courts") as any)
-        .update({ sun_exposure_rating: sun, drainage_rating: drain, permanent_note: note || null })
+        .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null })
         .eq("facility_id", id!)
         .eq("court_number", courtNumber);
 
@@ -135,7 +140,7 @@ export default function FacilityAdmin() {
       const numbers = Array.from(selectedForBulk);
       for (const n of numbers) {
         const { error } = await (supabase.from("sub_courts") as any)
-          .update({ sun_exposure_rating: bulkSun, drainage_rating: bulkDrain })
+          .update({ sun_exposure: bulkSun, drainage: bulkDrain })
           .eq("facility_id", id!)
           .eq("court_number", n);
 
@@ -264,10 +269,10 @@ export default function FacilityAdmin() {
 
             {/* Individual Courts */}
             {subCourts.map((sc) => {
-              const state = editState[sc.court_number] || { sun: sc.sun_exposure_rating, drain: sc.drainage_rating, note: sc.permanent_note || "" };
+              const state = editState[sc.court_number] || { sun: sc.sun_exposure, drain: sc.drainage, note: sc.permanent_note || "" };
               const hasChanges =
-                state.sun !== sc.sun_exposure_rating ||
-                state.drain !== sc.drainage_rating ||
+                state.sun !== sc.sun_exposure ||
+                state.drain !== sc.drainage ||
                 (state.note || "") !== (sc.permanent_note || "");
 
               return (
