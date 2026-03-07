@@ -172,6 +172,9 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   const status = getCourtStatus(report, latestObservation, currentHumidity, recentRain);
   const config = STATUS_CONFIG[status];
   const highHumidity = (currentHumidity ?? 0) > 90;
+  const saturatedAirHardLock = highHumidity && report?.rainfall !== null;
+  const displayLabel = saturatedAirHardLock ? "Saturated Air - UNPLAYABLE" : config.label;
+  const displayColor = saturatedAirHardLock ? "bg-destructive" : config.color;
 
   const dryTime = report
     ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
@@ -189,7 +192,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   // Rain reset note
   const showRainResetNote = report && latestObservation?.status === "playable" && status !== "verified";
 
-  const showActiveStatus = status === "drying" || status === "wet";
+  const showActiveStatus = !saturatedAirHardLock && (status === "drying" || status === "wet");
 
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
