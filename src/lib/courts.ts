@@ -154,7 +154,7 @@ export function getCourtStatus(
     if (obsAge <= 45) return "verified";
   }
 
-  // Hard safety override: any non-null rainfall report + humidity > 90 means saturated air
+  // Hard safety override: humidity > 90% always means saturated air
   const reportAgeMinutes = report
     ? (Date.now() - new Date(report.created_at).getTime()) / 60000
     : Number.POSITIVE_INFINITY;
