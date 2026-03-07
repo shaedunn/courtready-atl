@@ -778,6 +778,10 @@ export default function CourtDetail() {
 
         <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={weatherData?.rain_1h > 0} />
 
+        {weatherData?.hourly && weatherData.hourly.length > 0 && (
+          <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
+        )}
+
         {/* Rain reset banner */}
         {rainResetActive && (
           <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
