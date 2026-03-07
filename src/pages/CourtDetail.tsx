@@ -515,6 +515,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
   );
 }
 
+function StatusCardSkeleton() {
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
       <div className="flex items-center justify-between">
