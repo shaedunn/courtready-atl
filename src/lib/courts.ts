@@ -36,10 +36,12 @@ function normalizeRating(rating: number): number {
  * Step-Multiplier dry time engine (V1).
  *
  * Base:       60 mins per 0.1" rain → 600 × effectiveRain
- * Humidity:   ×1.5 if 70–85%, ×2.5 if >85%
+ * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×2.5 if >90%
+ * Humidity Floor: if >90%, minimum 120 minutes (evaporation effectively zero)
  * Wind:       ×1.3 if wind < 3 mph
  * Drainage:   divide by normalized drainage (1-5 → 0.2-1.0)
  * Sun:        divide by normalized sun exposure (1-5 → 0.2-1.0)
+ * Shade Penalty: sun_exposure=1 adds 50% time penalty
  * Hindrance:  multiply by highest hindrance factor
  */
 export function calculateDryTime(
@@ -77,6 +79,11 @@ export function calculateDryTime(
   const sunFactor = normalizeRating(sunExposure);
   minutes = minutes / drainageFactor / sunFactor;
 
+  // Shade penalty: sun_exposure=1 adds 50% time
+  if (sunExposure <= 1) {
+    minutes *= 1.5;
+  }
+
   // Hindrance multiplier
   const hindranceMultiplier =
     hindrances.length === 0 || hindrances.includes("none")
@@ -87,7 +94,14 @@ export function calculateDryTime(
             .map((h) => HINDRANCE_OPTIONS.find((o) => o.value === h)?.multiplier ?? 1.0)
         );
 
-  return Math.round(Math.max(0, minutes * hindranceMultiplier));
+  const result = Math.round(Math.max(0, minutes * hindranceMultiplier));
+
+  // Humidity Floor: if >90%, minimum 120 minutes
+  if (humidity > 90 && effectiveRain > 0) {
+    return Math.max(120, result);
+  }
+
+  return result;
 }
 
 /**
@@ -111,19 +125,31 @@ export function formatDryTime(minutes: number): string {
 }
 
 /**
- * Traffic-light status from a report row + optional latest observation.
- * Green: no report in 12h OR dry time elapsed OR verified playable in last 30 min.
- * Yellow: report exists, dry time not yet finished.
- * Red: report < 60 min old with > 0.25" rain.
+ * Traffic-light status from a report row + optional latest observation + current humidity.
+ *
+ * Verified: playable observation < 45 min old (AND humidity ≤ 90)
+ * Playable: no report in 12h OR dry time elapsed (AND humidity ≤ 90 if rain report exists)
+ * Drying:   report exists, dry time not yet finished, OR humidity > 90% with rain
+ * Wet:      report < 60 min old with > 0.25" rain
+ *
+ * PERSISTENCE RULE: Never show "Dry" based on weather alone.
+ * Only "Dry" if calculateDryTime from most recent report has reached zero.
+ *
+ * HUMIDITY FLOOR: If humidity > 90% and a rain report exists with remaining dry time,
+ * status CANNOT be "playable" — stays "drying" with minimum 120 min.
  */
 export type CourtStatus = "playable" | "drying" | "wet" | "verified";
 
 export function getCourtStatus(
   report: { created_at: string; estimated_dry_minutes: number; rainfall: number } | null,
-  latestObservation?: { status: string; created_at: string } | null
+  latestObservation?: { status: string; created_at: string } | null,
+  currentHumidity?: number | null
 ): CourtStatus {
-  // Check for verified playable within last 30 minutes
-  if (latestObservation?.status === "playable") {
+  const highHumidity = (currentHumidity ?? 0) > 90;
+
+  // Check for verified playable within last 45 minutes
+  // BUT not if humidity > 90% (evaporation stalled)
+  if (latestObservation?.status === "playable" && !highHumidity) {
     const obsAge = (Date.now() - new Date(latestObservation.created_at).getTime()) / 60000;
     if (obsAge <= 45) return "verified";
   }
@@ -132,14 +158,25 @@ export function getCourtStatus(
 
   const ageMinutes = (Date.now() - new Date(report.created_at).getTime()) / 60000;
 
-  // No report in 12 hours → playable
-  if (ageMinutes > 720) return "playable";
+  // No report in 12 hours → playable (only if not high humidity with meaningful rain)
+  if (ageMinutes > 720) {
+    if (highHumidity && report.rainfall > 0.1) return "drying";
+    return "playable";
+  }
 
-  // Dry time has elapsed → playable
-  if (ageMinutes >= report.estimated_dry_minutes) return "playable";
+  // Humidity Floor: if > 90% and rain exists, cannot be dry
+  if (highHumidity && report.rainfall > 0) {
+    // Even if calculated dry time elapsed, high humidity stalls evaporation
+    if (ageMinutes < report.estimated_dry_minutes || report.estimated_dry_minutes >= 120) {
+      return ageMinutes < 60 && report.rainfall > 0.25 ? "wet" : "drying";
+    }
+  }
 
   // Report < 60 min old with heavy rain → wet
   if (ageMinutes < 60 && report.rainfall > 0.25) return "wet";
+
+  // Dry time has elapsed → playable
+  if (ageMinutes >= report.estimated_dry_minutes) return "playable";
 
   // Otherwise → drying
   return "drying";

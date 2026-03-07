@@ -1,38 +1,32 @@
-// Sovereign Supabase client — points to the user's own project (racdnnitrapgqozxctsk)
-// This bypasses the auto-managed Lovable Cloud client.
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+// Re-export the Lovable Cloud Supabase client for all DB operations.
+// Edge function calls still use the sovereign project URL.
+import { supabase } from "@/integrations/supabase/client";
 
+export { supabase };
+
+// Sovereign edge function URL (weather API is deployed here)
 const SOVEREIGN_URL = "https://racdnnitrapgqozxctsk.supabase.co";
 const SOVEREIGN_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw";
 
-export const supabase = createClient<Database>(SOVEREIGN_URL, SOVEREIGN_ANON_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
-
-// Export for edge function URL construction
 export const SOVEREIGN_PROJECT_ID = "racdnnitrapgqozxctsk";
 export const SOVEREIGN_ANON = SOVEREIGN_ANON_KEY;
+export const SOVEREIGN_FUNCTIONS_URL = `${SOVEREIGN_URL}/functions/v1`;
 
-// Sovereign court type — matches the actual schema on racdnnitrapgqozxctsk
-// DB columns: sun_exposure (1-5), drainage (1-5)
+// Court type — matches Lovable Cloud schema
+// DB columns: sun_exposure (1-5), drainage (1-5), location, latitude, longitude
 export type SovereignCourt = {
   id: string;
   created_at: string;
   name: string;
-  address: string;
+  location: string;       // was 'address' on sovereign
   slug: string;
   surface: string;
   court_count: number;
-  lat: number | null;
-  lon: number | null;
-  sun_exposure: number;   // 1-5 scale
-  drainage: number;       // 1-5 scale
+  latitude: number | null; // was 'lat' on sovereign
+  longitude: number | null; // was 'lon' on sovereign
+  sun_exposure: number;    // 1-5 scale
+  drainage: number;        // 1-5 scale
 };
 
 // Observation type for status verifications
