@@ -21,19 +21,20 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
   const { data: subCourts = [] } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", courtId],
     queryFn: async () => {
-      console.log("Fetching for Facility:", courtId);
-      const { data, error } = await (supabase.from("sub_courts") as any)
-        .select("*")
-        .eq("facility_id", courtId)
-        .order("court_number");
+      try {
+        console.log("Fetching for Facility:", courtId);
+        const { data, error } = await (supabase.from("sub_courts") as any)
+          .select("*")
+          .eq("facility_id", courtId)
+          .order("court_number");
 
-      if (error) {
-        console.error(`[SubCourtEditor] Query error:`, error);
+        if (error) throw error;
+        console.log("Raw Data Received:", data ?? []);
+        return (data ?? []) as SubCourt[];
+      } catch (error) {
+        console.error("[SubCourtEditor] Failed to fetch sub_courts:", error);
         throw error;
       }
-
-      console.log("Raw Data Received:", data ?? []);
-      return (data ?? []) as SubCourt[];
     },
   });
 
@@ -48,8 +49,8 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
       const { error } = await supabase
         .from("sub_courts")
         .update({
-          sun_exposure_rating: sunVal,
-          drainage_rating: drainVal,
+          sun_exposure: sunVal,
+          drainage: drainVal,
           permanent_note: noteVal.trim() || null,
           hazard_description: hazardVal.trim() || null,
         } as any)
@@ -67,8 +68,8 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
       const { error } = await (supabase.from("sub_courts") as any).insert({
         facility_id: courtId,
         court_number: courtNumber,
-        sun_exposure_rating: 3,
-        drainage_rating: 3,
+        sun_exposure: 3,
+        drainage: 3,
       });
       if (error) throw error;
     },
@@ -79,8 +80,8 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
 
   const startEdit = (sc: SubCourt) => {
     setEditingCourt(sc);
-    setSunVal(sc.sun_exposure_rating);
-    setDrainVal(sc.drainage_rating);
+    setSunVal(sc.sun_exposure);
+    setDrainVal(sc.drainage);
     setNoteVal(sc.permanent_note || "");
     setHazardVal(sc.hazard_description || "");
   };
@@ -90,8 +91,8 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
       const rows = Array.from({ length: courtCount }, (_, i) => ({
         facility_id: courtId,
         court_number: i + 1,
-        sun_exposure_rating: 3,
-        drainage_rating: 3,
+        sun_exposure: 3,
+        drainage: 3,
       }));
 
       const { error } = await (supabase.from("sub_courts") as any).insert(rows);
@@ -221,8 +222,8 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
                 <Pencil className="w-3 h-3 text-muted-foreground" />
               </div>
               <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
-                <span>☀ {sc.sun_exposure_rating}/5</span>
-                <span>💧 {sc.drainage_rating}/5</span>
+                <span>☀ {sc.sun_exposure}/5</span>
+                <span>💧 {sc.drainage}/5</span>
               </div>
               {sc.hazard_description && (
                 <div className="flex items-start gap-1 mt-1.5">
