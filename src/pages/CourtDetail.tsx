@@ -525,7 +525,7 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} />
+        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={weatherData?.rain_1h > 0} />
 
         {/* Rain reset banner */}
         {rainResetActive && (
