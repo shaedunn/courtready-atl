@@ -173,7 +173,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   const config = STATUS_CONFIG[status];
   const highHumidity = (currentHumidity ?? 0) > 90;
   const saturatedAirHardLock = highHumidity;
-  const displayLabel = saturatedAirHardLock ? "Saturated Air - UNPLAYABLE" : config.label;
+  const displayLabel = saturatedAirHardLock ? "Saturated Air - Drying Paused" : config.label;
   const displayColor = saturatedAirHardLock ? "bg-destructive" : config.color;
 
   const dryTime = report
@@ -228,8 +228,8 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
       {saturatedAirHardLock && (
         <div className="text-center space-y-2">
           <AlertTriangle className="w-6 h-6 text-destructive mx-auto" />
-          <p className="text-lg font-bold text-destructive">Status: Saturated Air - UNPLAYABLE</p>
-          <p className="text-xs text-muted-foreground">Humidity &gt;90%. Minimum dry timer is locked.</p>
+          <p className="text-lg font-bold text-destructive">Status: Saturated Air - Drying Paused</p>
+          <p className="text-xs text-muted-foreground">Humidity &gt;90%. Natural drying is paused.</p>
           <div className="flex items-center justify-center gap-2">
             <Clock className="w-5 h-5 text-destructive" />
             <span className="text-xl font-bold font-mono text-destructive">{formatDryTime(saturatedAirEstimate)}</span>
@@ -420,17 +420,22 @@ export default function CourtDetail() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
 
-  const { data: subCourts = [] } = useQuery<SubCourtRow[]>({
+  const { data: subCourts } = useQuery<SubCourtRow[]>({
     queryKey: ["sub-courts", id],
     queryFn: async () => {
-      console.log("Fetching for Facility:", id);
-      const { data, error } = await (supabase.from("sub_courts") as any)
-        .select("*")
-        .eq("facility_id", id!)
-        .order("court_number");
-      if (error) throw error;
-      console.log("Raw Data Received:", data ?? []);
-      return (data ?? []) as SubCourtRow[];
+      try {
+        console.log("Fetching for Facility:", id);
+        const { data, error } = await (supabase.from("sub_courts") as any)
+          .select("*")
+          .eq("facility_id", id!)
+          .order("court_number");
+        if (error) throw error;
+        console.log("Raw Data Received:", data ?? []);
+        return (data ?? []) as SubCourtRow[];
+      } catch (error) {
+        console.error("[CourtDetail] Failed to fetch sub_courts:", error);
+        throw error;
+      }
     },
     enabled: !!id,
   });
@@ -440,8 +445,8 @@ export default function CourtDetail() {
       const rows = Array.from({ length: 4 }, (_, index) => ({
         facility_id: id!,
         court_number: index + 1,
-        sun_exposure_rating: 3,
-        drainage_rating: 3,
+        sun_exposure: 3,
+        drainage: 3,
       }));
 
       const { error } = await (supabase.from("sub_courts") as any).insert(rows);
@@ -586,15 +591,15 @@ export default function CourtDetail() {
           </div>
         )}
 
-        {subCourts.length === 0 && (
+        {(!subCourts || subCourts.length === 0) && (
           <button
             onClick={() => forceCreateSubCourtsMutation.mutate()}
             disabled={forceCreateSubCourtsMutation.isPending}
             className="w-full bg-primary text-primary-foreground border border-primary/40 font-extrabold py-4 rounded-xl text-sm tracking-wide shadow-lg shadow-primary/35 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60"
           >
             {forceCreateSubCourtsMutation.isPending
-              ? "Creating Sub-Courts..."
-              : "Force-Create 4 Sub-Courts for This Facility"}
+              ? "Creating Initial Courts..."
+              : "Create Initial Courts"}
           </button>
         )}
 
