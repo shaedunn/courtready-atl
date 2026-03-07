@@ -1,46 +1,195 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, AlertTriangle } from "lucide-react";
-import { supabase, type SovereignCourt } from "@/lib/supabase";
+import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors } from "lucide-react";
+import { supabase, type SovereignCourt, type Observation, SOVEREIGN_ANON, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
-import { formatDryTime, getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
+import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import ReportForm from "@/components/court/ReportForm";
 
 type Report = Tables<"reports">;
 
-function StatusCard({ report, courtId }: { report: Report | null; courtId: string }) {
+/* ─── Display Name Prompt ─── */
+function DisplayNamePrompt({ onConfirm }: { onConfirm: (name: string) => void }) {
+  const [name, setName] = useState(getDisplayName());
+  return (
+    <div className="bg-secondary/50 rounded-lg p-4 border border-border space-y-3">
+      <p className="text-xs font-medium text-foreground">Enter your display name (saved locally)</p>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g. Captain Dunn"
+        className="w-full bg-secondary text-foreground rounded-lg px-3 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50"
+      />
+      <button
+        onClick={() => { if (name.trim()) { setDisplayName(name.trim()); onConfirm(name.trim()); } }}
+        disabled={!name.trim()}
+        className="w-full bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+      >
+        Confirm
+      </button>
+    </div>
+  );
+}
+
+/* ─── Status Verification Section ─── */
+function StatusVerification({ courtId, reportId }: { courtId: string; reportId: string | null }) {
   const queryClient = useQueryClient();
-  const status = getCourtStatus(report);
+  const [needsName, setNeedsName] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"still_wet" | "squeegee_needed" | "playable" | null>(null);
+
+  const submitObservation = useMutation({
+    mutationFn: async (status: "still_wet" | "squeegee_needed" | "playable") => {
+      const name = getDisplayName();
+      if (!name) {
+        setPendingAction(status);
+        setNeedsName(true);
+        throw new Error("NEEDS_NAME");
+      }
+      const { error } = await supabase.from("observations").insert({
+        court_id: courtId,
+        report_id: reportId,
+        status,
+        display_name: name,
+      } as any);
+      if (error) throw error;
+
+      // If squeegeeing, apply 40% reduction to the current report
+      if (status === "squeegee_needed" && reportId) {
+        const { data: report } = await supabase.from("reports").select("estimated_dry_minutes, created_at").eq("id", reportId).single();
+        if (report) {
+          const elapsed = (Date.now() - new Date(report.created_at).getTime()) / 60000;
+          const remaining = Math.max(0, report.estimated_dry_minutes - elapsed);
+          const newTotal = elapsed + calculateSqueegeeDryTime(remaining);
+          await supabase.from("reports").update({ estimated_dry_minutes: Math.round(newTotal) }).eq("id", reportId);
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["latest-report", courtId] });
+      queryClient.invalidateQueries({ queryKey: ["latest-reports"] });
+      queryClient.invalidateQueries({ queryKey: ["latest-observation", courtId] });
+    },
+    onError: (err) => {
+      if (err.message !== "NEEDS_NAME") console.error(err);
+    },
+  });
+
+  const handleNameConfirmed = (name: string) => {
+    setNeedsName(false);
+    if (pendingAction) {
+      submitObservation.mutate(pendingAction);
+      setPendingAction(null);
+    }
+  };
+
+  if (needsName) return <DisplayNamePrompt onConfirm={handleNameConfirmed} />;
+
+  const btnClass = "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border transition-all active:scale-[0.98] disabled:opacity-50";
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Verify Status</p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => submitObservation.mutate("still_wet")}
+          disabled={submitObservation.isPending}
+          className={`${btnClass} bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20`}
+        >
+          <DropletsIcon className="w-3.5 h-3.5" /> Still Wet
+        </button>
+        <button
+          onClick={() => submitObservation.mutate("squeegee_needed")}
+          disabled={submitObservation.isPending}
+          className={`${btnClass} bg-court-amber/10 text-court-amber border-court-amber/20 hover:bg-court-amber/20`}
+        >
+          <Scissors className="w-3.5 h-3.5" /> Squeegee Needed
+        </button>
+        <button
+          onClick={() => submitObservation.mutate("playable")}
+          disabled={submitObservation.isPending}
+          className={`${btnClass} bg-court-green/10 text-court-green border-court-green/20 hover:bg-court-green/20`}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" /> Playable
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Squeegee Action Button ─── */
+function SqueegeeAction({ report, courtId }: { report: Report; courtId: string }) {
+  const queryClient = useQueryClient();
+
+  const squeegeeMutation = useMutation({
+    mutationFn: async () => {
+      const name = getDisplayName() || "Anonymous";
+      const elapsed = (Date.now() - new Date(report.created_at).getTime()) / 60000;
+      const remaining = Math.max(0, report.estimated_dry_minutes - elapsed);
+      const newTotal = elapsed + calculateSqueegeeDryTime(remaining);
+
+      const { error } = await supabase
+        .from("reports")
+        .update({ estimated_dry_minutes: Math.round(newTotal) })
+        .eq("id", report.id);
+      if (error) throw error;
+
+      // Log observation
+      await supabase.from("observations").insert({
+        court_id: courtId,
+        report_id: report.id,
+        status: "squeegee_needed",
+        display_name: name,
+      } as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["latest-report", courtId] });
+      queryClient.invalidateQueries({ queryKey: ["latest-reports"] });
+      queryClient.invalidateQueries({ queryKey: ["latest-observation", courtId] });
+    },
+  });
+
+  return (
+    <button
+      onClick={() => squeegeeMutation.mutate()}
+      disabled={squeegeeMutation.isPending}
+      className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 rounded-lg py-2.5 text-sm font-medium hover:bg-primary/20 active:scale-[0.98] transition-all disabled:opacity-50"
+    >
+      <Scissors className="w-4 h-4" />
+      {squeegeeMutation.isPending ? "Updating..." : "I am Squeegeeing This Court"}
+    </button>
+  );
+}
+
+/* ─── Status Card ─── */
+function StatusCard({ report, courtId, latestObservation }: { report: Report | null; courtId: string; latestObservation: Observation | null }) {
+  const status = getCourtStatus(report, latestObservation);
   const config = STATUS_CONFIG[status];
 
   const dryTime = report
     ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
     : null;
   const roundedDry = dryTime !== null ? Math.round(dryTime) : null;
+  const squeegeeDry = roundedDry !== null && roundedDry > 0 ? calculateSqueegeeDryTime(roundedDry) : null;
 
-  const stillWetMutation = useMutation({
-    mutationFn: async () => {
-      if (!report) throw new Error("No report");
-      const { error } = await supabase
-        .from("reports")
-        .update({ estimated_dry_minutes: report.estimated_dry_minutes + 30 })
-        .eq("id", report.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["latest-report", courtId] });
-      queryClient.invalidateQueries({ queryKey: ["latest-reports"] });
-    },
-  });
+  // Find verifier info
+  const verifierName = latestObservation?.status === "playable" ? latestObservation.display_name : null;
+  const verifierTime = latestObservation?.status === "playable"
+    ? new Date(latestObservation.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
 
-  const showStillWet = status === "drying" || status === "wet";
+  // Rain reset note
+  const showRainResetNote = report && latestObservation?.status === "playable" && status !== "verified";
+
+  const showActiveStatus = status === "drying" || status === "wet";
 
   return (
-    <div className="bg-card rounded-lg p-5 border border-border card-glow">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
+      <div className="flex items-center justify-between">
         <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Current Status</span>
         <div className="flex items-center gap-2">
           {report && (
@@ -55,40 +204,88 @@ function StatusCard({ report, courtId }: { report: Report | null; courtId: strin
         </div>
       </div>
 
-      {roundedDry !== null && roundedDry > 0 ? (
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <Clock className="w-5 h-5 text-court-amber" />
-            <span className="text-2xl font-bold font-mono text-court-amber">{formatDryTime(roundedDry)}</span>
+      {/* Verified Playable */}
+      {status === "verified" && (
+        <div className="text-center space-y-1">
+          <CheckCircle2 className="w-7 h-7 text-court-green mx-auto" />
+          <p className="text-lg font-bold text-court-green">Verified Playable</p>
+          {verifierName && verifierTime && (
+            <p className="text-xs text-muted-foreground">
+              by <span className="font-medium text-foreground">{verifierName}</span> at {verifierTime}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Active drying/wet status */}
+      {showActiveStatus && roundedDry !== null && roundedDry > 0 && (
+        <div className="text-center space-y-3">
+          <div className="space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Natural Dry Time</p>
+            <div className="flex items-center justify-center gap-2">
+              <Clock className="w-5 h-5 text-court-amber" />
+              <span className="text-2xl font-bold font-mono text-court-amber">{formatDryTime(roundedDry)}</span>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">Estimated time to playable</p>
-          <div className="flex gap-3 text-[11px] text-muted-foreground justify-center pt-1 flex-wrap">
+          {squeegeeDry !== null && (
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Squeegee Assisted</p>
+              <span className="text-lg font-bold font-mono text-primary">{formatDryTime(squeegeeDry)}</span>
+            </div>
+          )}
+          <div className="flex gap-3 text-[11px] text-muted-foreground justify-center flex-wrap">
             <span>Rain: {report!.rainfall}"</span>
             <span>·</span>
             <span>Squeegees: {report!.squeegee_count}</span>
           </div>
         </div>
-      ) : roundedDry !== null && roundedDry <= 0 ? (
+      )}
+
+      {/* Dry / no reports */}
+      {status === "playable" && (
         <div className="text-center space-y-1">
           <Sparkles className="w-6 h-6 text-primary mx-auto" />
           <p className="text-lg font-bold text-primary text-glow">Courts are Dry</p>
           <p className="text-xs text-muted-foreground">Ready to play</p>
         </div>
-      ) : (
+      )}
+
+      {/* No reports at all */}
+      {!report && status === "playable" && (
         <p className="text-center text-sm text-muted-foreground py-2">No recent reports</p>
       )}
 
-      {/* Still Wet? — Social validation button */}
-      {showStillWet && (
-        <button
-          onClick={() => stillWetMutation.mutate()}
-          disabled={stillWetMutation.isPending}
-          className="mt-4 w-full flex items-center justify-center gap-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg py-2.5 text-sm font-medium hover:bg-destructive/20 active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          <AlertTriangle className="w-4 h-4" />
-          {stillWetMutation.isPending ? "Updating..." : "Still Wet? (+30 mins)"}
-        </button>
+      {/* Rain reset note */}
+      {showRainResetNote && (
+        <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
+          <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-destructive">Previous Playable status voided due to new rainfall.</p>
+        </div>
       )}
+
+      {/* Squeegee action */}
+      {showActiveStatus && report && <SqueegeeAction report={report} courtId={courtId} />}
+
+      {/* Status Verification */}
+      {(showActiveStatus || status === "playable") && report && (
+        <StatusVerification courtId={courtId} reportId={report?.id ?? null} />
+      )}
+
+      {/* V1 footer */}
+      <TooltipProvider delayDuration={100}>
+        <div className="flex justify-end">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-[10px] text-muted-foreground/50 cursor-help flex items-center gap-1">
+                <Info className="w-3 h-3" /> V1 Predictor Model
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[240px] text-xs">
+              Dry time estimates use a Step-Multiplier formula calibrated with weather, drainage, and sun exposure data. Community verifications help improve accuracy.
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
     </div>
   );
 }
@@ -108,9 +305,10 @@ function StatusCardSkeleton() {
   );
 }
 
+/* ─── Captain's Log ─── */
 function CaptainsLog({ court }: { court: SovereignCourt }) {
   const [logText, setLogText] = useState("");
-  const [logAuthor, setLogAuthor] = useState("");
+  const [logAuthor, setLogAuthor] = useState(getDisplayName() || "");
   const queryClient = useQueryClient();
 
   const { data: logs = [] } = useQuery({
@@ -130,9 +328,11 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
   const submitLog = useMutation({
     mutationFn: async () => {
       if (!logText.trim()) return;
+      const author = logAuthor.trim() || "Anonymous";
+      if (logAuthor.trim()) setDisplayName(logAuthor.trim());
       const { error } = await supabase.from("court_logs").insert({
         court_id: court.id,
-        author: logAuthor.trim() || "Anonymous",
+        author,
         message: logText.trim(),
       });
       if (error) throw error;
@@ -178,6 +378,7 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
   );
 }
 
+/* ─── Main Page ─── */
 export default function CourtDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -210,6 +411,52 @@ export default function CourtDetail() {
     enabled: !!court,
     refetchInterval: 30000,
   });
+
+  const { data: latestObservation = null } = useQuery<Observation | null>({
+    queryKey: ["latest-observation", id],
+    queryFn: async () => {
+      if (!court) return null;
+      const { data, error } = await supabase
+        .from("observations")
+        .select("*")
+        .eq("court_id", court.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Observation | null;
+    },
+    enabled: !!court,
+    refetchInterval: 30000,
+  });
+
+  // Rain reset guardrail: check weather for new precipitation
+  const { data: weatherData } = useQuery({
+    queryKey: ["weather-check", court?.lat, court?.lon],
+    queryFn: async () => {
+      if (!court?.lat || !court?.lon) return null;
+      const ts = Date.now();
+      const res = await fetch(`https://racdnnitrapgqozxctsk.supabase.co/functions/v1/get-weather?t=${ts}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SOVEREIGN_ANON,
+          Authorization: `Bearer ${SOVEREIGN_ANON}`,
+        },
+        body: JSON.stringify({ lat: court.lat, lon: court.lon, t: ts }),
+      });
+      return res.ok ? await res.json() : null;
+    },
+    enabled: !!court?.lat && !!court?.lon,
+    refetchInterval: 300000, // every 5 min
+    staleTime: 240000,
+  });
+
+  // Determine if rain reset applies: latest obs is playable but weather shows rain
+  const rainResetActive = latestObservation?.status === "playable" && weatherData?.rain_1h > 0;
+
+  // Override observation if rain detected after playable verification
+  const effectiveObservation = rainResetActive ? null : latestObservation;
 
   if (isLoading) {
     return (
@@ -258,7 +505,15 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        <StatusCard report={latestReport} courtId={court.id} />
+        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} />
+
+        {/* Rain reset banner */}
+        {rainResetActive && (
+          <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
+            <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-destructive">Previous Playable status voided due to new rainfall detected by weather API.</p>
+          </div>
+        )}
 
         {!showForm && (
           <button onClick={() => setShowForm(true)}

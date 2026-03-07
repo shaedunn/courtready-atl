@@ -25,13 +25,21 @@ const SQUEEGEE_FACTOR: Record<number, number> = {
 };
 
 /**
+ * Normalize a 1-5 rating to a 0.2–1.0 divisor.
+ * 5 = best (1.0), 1 = worst (0.2).
+ */
+function normalizeRating(rating: number): number {
+  return Math.max(0.2, Math.min(1.0, rating / 5));
+}
+
+/**
  * Step-Multiplier dry time engine (V1).
  *
  * Base:       60 mins per 0.1" rain → 600 × effectiveRain
  * Humidity:   ×1.5 if 70–85%, ×2.5 if >85%
  * Wind:       ×1.3 if wind < 3 mph
- * Drainage:   divide by drainage_rating (0–1 scale, higher = better)
- * Sun:        divide by sun_exposure_rating (0–1 scale, higher = better)
+ * Drainage:   divide by normalized drainage (1-5 → 0.2-1.0)
+ * Sun:        divide by normalized sun exposure (1-5 → 0.2-1.0)
  * Hindrance:  multiply by highest hindrance factor
  */
 export function calculateDryTime(
@@ -62,9 +70,9 @@ export function calculateDryTime(
     minutes *= 1.3;
   }
 
-  // Drainage & sun exposure as divisors (guard against zero)
-  const drainageFactor = Math.max(drainage, 0.1);
-  const sunFactor = Math.max(sunExposure, 0.1);
+  // Drainage & sun exposure as divisors (1-5 scale → normalized)
+  const drainageFactor = normalizeRating(drainage);
+  const sunFactor = normalizeRating(sunExposure);
   minutes = minutes / drainageFactor / sunFactor;
 
   // Hindrance multiplier
@@ -81,6 +89,13 @@ export function calculateDryTime(
 }
 
 /**
+ * Calculate squeegee-assisted dry time (40% reduction of remaining natural time).
+ */
+export function calculateSqueegeeDryTime(naturalMinutes: number): number {
+  return Math.round(naturalMinutes * 0.6);
+}
+
+/**
  * Format dry time as human-readable string.
  * < 60 → "X minutes"
  * ≥ 60 → "X hours and Y minutes" (omits "and 0 minutes" if exact)
@@ -94,14 +109,23 @@ export function formatDryTime(minutes: number): string {
 }
 
 /**
- * Traffic-light status from a report row.
- * Green: no report in 12h OR dry time elapsed.
+ * Traffic-light status from a report row + optional latest observation.
+ * Green: no report in 12h OR dry time elapsed OR verified playable in last 30 min.
  * Yellow: report exists, dry time not yet finished.
  * Red: report < 60 min old with > 0.25" rain.
  */
-export type CourtStatus = "playable" | "drying" | "wet";
+export type CourtStatus = "playable" | "drying" | "wet" | "verified";
 
-export function getCourtStatus(report: { created_at: string; estimated_dry_minutes: number; rainfall: number } | null): CourtStatus {
+export function getCourtStatus(
+  report: { created_at: string; estimated_dry_minutes: number; rainfall: number } | null,
+  latestObservation?: { status: string; created_at: string } | null
+): CourtStatus {
+  // Check for verified playable within last 30 minutes
+  if (latestObservation?.status === "playable") {
+    const obsAge = (Date.now() - new Date(latestObservation.created_at).getTime()) / 60000;
+    if (obsAge <= 30) return "verified";
+  }
+
   if (!report) return "playable";
 
   const ageMinutes = (Date.now() - new Date(report.created_at).getTime()) / 60000;
@@ -121,6 +145,7 @@ export function getCourtStatus(report: { created_at: string; estimated_dry_minut
 
 export const STATUS_CONFIG: Record<CourtStatus, { color: string; label: string }> = {
   playable: { color: "bg-court-green", label: "Playable" },
+  verified: { color: "bg-court-green", label: "Verified Playable" },
   drying: { color: "bg-court-amber", label: "Drying" },
   wet: { color: "bg-court-red", label: "Wet" },
 };
