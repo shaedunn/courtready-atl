@@ -129,14 +129,13 @@ export function formatDryTime(minutes: number): string {
  *
  * Verified: playable observation < 45 min old (AND humidity ≤ 90)
  * Playable: no report in 12h OR dry time elapsed (AND humidity ≤ 90 if rain report exists)
- * Drying:   report exists, dry time not yet finished, OR humidity > 90% with rain
+ * Drying:   report exists and dry time not yet finished
  * Wet:      report < 60 min old with > 0.25" rain
  *
  * PERSISTENCE RULE: Never show "Dry" based on weather alone.
  * Only "Dry" if calculateDryTime from most recent report has reached zero.
  *
- * HUMIDITY FLOOR: If humidity > 90% and a rain report exists with remaining dry time,
- * status CANNOT be "playable" — stays "drying" with minimum 120 min.
+ * HARD SAFETY RULE: If humidity > 90%, status cannot be "playable".
  */
 export type CourtStatus = "playable" | "drying" | "wet" | "verified" | "caution";
 
