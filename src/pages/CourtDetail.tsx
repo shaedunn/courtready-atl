@@ -224,6 +224,19 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
+      {/* Hard safety lock: saturated air is unplayable */}
+      {saturatedAirHardLock && (
+        <div className="text-center space-y-2">
+          <AlertTriangle className="w-6 h-6 text-destructive mx-auto" />
+          <p className="text-lg font-bold text-destructive">Status: Saturated Air - UNPLAYABLE</p>
+          <p className="text-xs text-muted-foreground">Humidity &gt;90% with moisture reported. Minimum dry timer is locked.</p>
+          <div className="flex items-center justify-center gap-2">
+            <Clock className="w-5 h-5 text-destructive" />
+            <span className="text-xl font-bold font-mono text-destructive">{formatDryTime(saturatedAirEstimate)}</span>
+          </div>
+        </div>
+      )}
+
       {/* Active drying/wet status */}
       {showActiveStatus && roundedDry !== null && roundedDry > 0 && (
         <div className="text-center space-y-3">
