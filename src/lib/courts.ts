@@ -164,16 +164,13 @@ export function getCourtStatus(
 
   // No report in 12 hours → playable (only if not high humidity with meaningful rain)
   if (ageMinutes > 720) {
-    if (highHumidity && report.rainfall > 0.1) return "drying";
+    if (highHumidity && report.rainfall > 0.1) return "caution";
     return "playable";
   }
 
-  // Humidity Floor: if > 90% and rain exists, cannot be dry
+  // Humidity Floor: if > 90% and rain exists, CANNOT be dry — stays drying
   if (highHumidity && report.rainfall > 0) {
-    // Even if calculated dry time elapsed, high humidity stalls evaporation
-    if (ageMinutes < report.estimated_dry_minutes || report.estimated_dry_minutes >= 120) {
-      return ageMinutes < 60 && report.rainfall > 0.25 ? "wet" : "drying";
-    }
+    return ageMinutes < 60 && report.rainfall > 0.25 ? "wet" : "drying";
   }
 
   // Report < 60 min old with heavy rain → wet
