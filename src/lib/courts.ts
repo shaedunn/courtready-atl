@@ -160,7 +160,7 @@ export function getCourtStatus(
     ? (Date.now() - new Date(report.created_at).getTime()) / 60000
     : Number.POSITIVE_INFINITY;
 
-  if (highHumidity && report && report.rainfall !== null) {
+  if (highHumidity && (recentRain || (report && report.rainfall !== null))) {
     return "caution";
   }
 
