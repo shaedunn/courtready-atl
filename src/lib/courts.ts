@@ -161,7 +161,7 @@ export function getCourtStatus(
     : Number.POSITIVE_INFINITY;
   const recentMoistureFromReport = !!report && reportAgeMinutes <= 480 && report.rainfall > 0;
 
-  if (highHumidity && (recentRain || recentMoistureFromReport)) {
+  if (highHumidity && report && report.rainfall !== null) {
     return "caution";
   }
 
