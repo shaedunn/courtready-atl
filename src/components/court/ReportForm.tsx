@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, Thermometer, Droplets, Wind, AlertTriangle, Info, Leaf } from "lucide-react";
-import { supabase, SOVEREIGN_ANON, type SovereignCourt, getDisplayName, setDisplayName } from "@/lib/supabase";
+import { supabase, fetchWeather, type SovereignCourt, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   calculateDryTime,
@@ -79,19 +79,9 @@ export default function ReportForm({
       return;
     }
     setWeatherLoading(true);
-    const ts = Date.now();
-    fetch(`https://racdnnitrapgqozxctsk.supabase.co/functions/v1/get-weather?t=${ts}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SOVEREIGN_ANON,
-        Authorization: `Bearer ${SOVEREIGN_ANON}`,
-      },
-      body: JSON.stringify({ lat: court.latitude, lon: court.longitude, t: ts }),
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok || !data?.temp) {
+    fetchWeather(court.latitude, court.longitude)
+      .then((data) => {
+        if (!data?.temp) {
           setWeatherError("Could not fetch weather");
         } else {
           setWeather(data as WeatherData);
