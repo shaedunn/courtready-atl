@@ -468,7 +468,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         </ToggleGroup>
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center relative">
         <svg width={size} height={size} className="transform -rotate-90">
           {/* Background ring */}
           <circle
