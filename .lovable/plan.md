@@ -1,25 +1,54 @@
 
+Goal: remove any chance of stale weather responses, expose the exact payload shape, and persist every weather call to a backend cache table.
 
-## Diagnosis
+What I verified in the current code/runtime:
+- The app is already calling the live backend function via `supabase.functions.invoke("get-weather")` (no local `/functions/get-weather` route found).
+- Current function response shape (live call):
+  `{"description":"scattered clouds","humidity":88,"icon":"03n","rain_1h":0,"temp":59.83,"wind_speed":0}`
+- There is no `weather_cache` table in the database right now.
+- `get-weather` currently does not write to the database at all (no upsert logic exists).
 
-The source code has **zero references** to the old `racdnnitrapgqozxctsk` domain. The `.env` correctly points to `xtpaffpgcadincafkgnz`. The `client.ts` reads from `import.meta.env` at build time. Yet runtime network requests still go to the old URL.
+Implementation plan:
 
-This means the **Lovable preview is serving a stale build** where the old URL was baked into the JavaScript bundle. No amount of client-side cache busting can fix this — the server-side build artifact itself is outdated.
+1) Add a `weather_cache` table (schema migration)
+- Create `public.weather_cache` with fields like:
+  - `id` uuid PK
+  - `lat` double precision not null
+  - `lon` double precision not null
+  - `cache_key` text not null unique (derived from normalized lat/lon)
+  - `temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`
+  - `raw_payload` jsonb not null
+  - `last_requested_at` timestamptz not null default now()
+  - `updated_at` timestamptz not null default now()
+- Enable RLS and keep table write-protected from clients (no public insert/update policies), so only backend function writes.
 
-## Fix
+2) Update `get-weather` edge function to always write on every request
+- Parse cache-bust token from query `t` and/or body `t`.
+- Call OpenWeather with an added nonce param (e.g. `&_=${t || Date.now()}`) and `Cache-Control: no-store` request header.
+- Build normalized response object (`temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`).
+- Initialize backend client inside function with server credentials and perform `upsert` into `weather_cache` using `cache_key` conflict target.
+- Always update `last_requested_at` + `updated_at` so each function call leaves an auditable write.
 
-Force a fresh build by making a small meaningful change to the Supabase client initialization. Specifically:
+3) Update frontend invocations to include timestamp cache-bust
+- `src/components/court/ReportForm.tsx`:
+  - change to `supabase.functions.invoke(\`get-weather?t=${Date.now()}\`, { body: { lat, lon, t: Date.now() } })`
+- `src/components/SplashScreen.tsx`:
+  - same timestamped invoke pattern for prefetch call
+- Keep existing UX behavior (weather badge + error states).
 
-1. **`src/integrations/supabase/client.ts`** — Cannot edit (auto-generated). Already correct.
+4) Expose exact JSON received for debugging
+- Add temporary debug logging in `ReportForm` (or guarded dev-only panel) to print/display the exact JSON returned from the function before any transformation.
+- Add function-side `console.log` for request coordinates and normalized payload to make logs useful.
 
-2. **`src/lib/supabase.ts`** — Add a runtime validation that logs the actual URL being used, so we can confirm the new build takes effect:
-   - Add a `console.info("CourtReady backend:", import.meta.env.VITE_SUPABASE_URL)` at module load
-   - This forces Vite to re-process the env variable reference in a new code path
+5) Validate end-to-end after implementation
+- Trigger weather fetch from `/court/leslie-beach-club`.
+- Confirm network requests include `?t=<timestamp>`.
+- Confirm function response JSON matches displayed/debugged payload.
+- Run read query:
+  - `select cache_key, temp, humidity, wind_speed, last_requested_at, updated_at from public.weather_cache order by updated_at desc limit 10;`
+- Re-fetch immediately and verify `updated_at` changes on each call.
 
-3. **`src/main.tsx`** — Bump the cache bust key from `v3` to `v4` so returning users also get the fresh build:
-   - Change `courtready-cache-busted-v3` → `courtready-cache-busted-v4`
-
-4. **`src/App.tsx`** — Add a trivial comment change to ensure the main entry point is recompiled
-
-These changes ensure Vite rebuilds the bundle with the correct `.env` values. The existing features (Moss Alert, Pilot Ticker, Instructions page, humidity lock) are already in place and will work once the connection is restored.
-
+Technical details:
+- No changes to generated Supabase client file (`src/integrations/supabase/client.ts`), per platform constraints.
+- This approach keeps weather reads public while restricting cache-table writes to backend logic only.
+- If you want per-court cache rows instead of per-lat/lon rows, I can switch `cache_key` to `court_id` in the same implementation pass.
