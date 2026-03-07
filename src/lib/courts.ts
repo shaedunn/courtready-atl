@@ -37,7 +37,7 @@ function normalizeRating(rating: number): number {
  *
  * Base:       60 mins per 0.1" rain → 600 × effectiveRain
  * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×3.0 if >90% (saturated air)
- * Humidity Floor: if >90%, minimum 120 minutes (evaporation effectively zero)
+ * Humidity Floor: if >90%, minimum 180 minutes (evaporation effectively zero)
  * Wind:       ×1.3 if wind < 3 mph
  * Drainage:   divide by normalized drainage (1-5 → 0.2-1.0)
  * Sun:        divide by normalized sun exposure (1-5 → 0.2-1.0)
@@ -96,9 +96,9 @@ export function calculateDryTime(
 
   const result = Math.round(Math.max(0, minutes * hindranceMultiplier));
 
-  // Humidity Floor: if >90%, minimum 120 minutes
+  // Humidity Floor: if >90%, minimum 180 minutes
   if (humidity > 90 && effectiveRain > 0) {
-    return Math.max(120, result);
+    return Math.max(180, result);
   }
 
   return result;
@@ -129,14 +129,13 @@ export function formatDryTime(minutes: number): string {
  *
  * Verified: playable observation < 45 min old (AND humidity ≤ 90)
  * Playable: no report in 12h OR dry time elapsed (AND humidity ≤ 90 if rain report exists)
- * Drying:   report exists, dry time not yet finished, OR humidity > 90% with rain
+ * Drying:   report exists and dry time not yet finished
  * Wet:      report < 60 min old with > 0.25" rain
  *
  * PERSISTENCE RULE: Never show "Dry" based on weather alone.
  * Only "Dry" if calculateDryTime from most recent report has reached zero.
  *
- * HUMIDITY FLOOR: If humidity > 90% and a rain report exists with remaining dry time,
- * status CANNOT be "playable" — stays "drying" with minimum 120 min.
+ * HARD SAFETY RULE: If humidity > 90%, status cannot be "playable".
  */
 export type CourtStatus = "playable" | "drying" | "wet" | "verified" | "caution";
 
@@ -155,12 +154,12 @@ export function getCourtStatus(
     if (obsAge <= 45) return "verified";
   }
 
-  // Hard safety override: any non-null rainfall report + humidity > 90 means saturated air
+  // Hard safety override: humidity > 90% always means saturated air
   const reportAgeMinutes = report
     ? (Date.now() - new Date(report.created_at).getTime()) / 60000
     : Number.POSITIVE_INFINITY;
 
-  if (highHumidity && (recentRain || (report && report.rainfall !== null))) {
+  if (highHumidity) {
     return "caution";
   }
 
@@ -184,7 +183,7 @@ export function getCourtStatus(
 export const STATUS_CONFIG: Record<CourtStatus, { color: string; label: string }> = {
   playable: { color: "bg-court-green", label: "Playable" },
   verified: { color: "bg-court-green", label: "Verified Playable" },
-  caution: { color: "bg-court-amber", label: "High Humidity" },
+  caution: { color: "bg-court-amber", label: "Saturated Air" },
   drying: { color: "bg-court-amber", label: "Drying" },
   wet: { color: "bg-court-red", label: "Wet" },
 };
