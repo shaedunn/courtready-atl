@@ -155,24 +155,19 @@ export function getCourtStatus(
     if (obsAge <= 45) return "verified";
   }
 
-  // Report within last 8 hours counts as "recent moisture"
-  const reportAge = report ? (Date.now() - new Date(report.created_at).getTime()) / 60000 : Infinity;
-  const recentMoisture = recentRain || (report !== null && reportAge < 480 && report.rainfall > 0);
+  // Hard safety override: high humidity + any recent moisture in last 8h => Saturated Air status
+  const reportAgeMinutes = report
+    ? (Date.now() - new Date(report.created_at).getTime()) / 60000
+    : Number.POSITIVE_INFINITY;
+  const recentMoistureFromReport = !!report && reportAgeMinutes <= 480 && report.rainfall > 0;
 
-  // HARD RULE: humidity > 90% + any recent moisture = CANNOT be "Dry"
-  if (highHumidity && recentMoisture) {
-    // If we have a report, check severity
-    if (report && reportAge < 480) {
-      if (reportAge < 60 && report.rainfall > 0.25) return "wet";
-      return "drying";
-    }
-    // No report but recent rain detected by weather API
+  if (highHumidity && (recentRain || recentMoistureFromReport)) {
     return "caution";
   }
 
   if (!report) return "playable";
 
-  const ageMinutes = reportAge;
+  const ageMinutes = reportAgeMinutes;
 
   // No report in 12 hours → playable
   if (ageMinutes > 720) return "playable";
@@ -190,7 +185,7 @@ export function getCourtStatus(
 export const STATUS_CONFIG: Record<CourtStatus, { color: string; label: string }> = {
   playable: { color: "bg-court-green", label: "Playable" },
   verified: { color: "bg-court-green", label: "Verified Playable" },
-  caution: { color: "bg-court-amber", label: "Caution" },
+  caution: { color: "bg-court-amber", label: "High Humidity" },
   drying: { color: "bg-court-amber", label: "Drying" },
   wet: { color: "bg-court-red", label: "Wet" },
 };

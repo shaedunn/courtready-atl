@@ -2,7 +2,8 @@ import { AlertTriangle, ShieldAlert } from "lucide-react";
 
 export type SubCourt = {
   id: string;
-  court_id: string;
+  court_id?: string;
+  facility_id?: string;
   court_number: number;
   sun_exposure: number;
   drainage: number;

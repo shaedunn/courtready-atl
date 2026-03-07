@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 
 type SubCourt = {
   id: string;
-  court_id: string;
+  court_id?: string;
+  facility_id?: string;
   court_number: number;
   sun_exposure: number;
   drainage: number;
   permanent_note: string | null;
+  hazard_description?: string | null;
   created_at: string;
 };
 
@@ -69,12 +71,25 @@ export default function FacilityAdmin() {
   const { data: subCourts = [], isLoading: subCourtsLoading } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", id],
     queryFn: async () => {
+      console.log("Fetching for Facility:", id);
+
+      const facilityQuery = await (supabase.from("sub_courts") as any)
+        .select("*")
+        .eq("facility_id", id!)
+        .order("court_number");
+
+      if (!facilityQuery.error) {
+        console.log("Raw Data Received:", facilityQuery.data ?? []);
+        return (facilityQuery.data ?? []) as SubCourt[];
+      }
+
       const { data, error } = await supabase
         .from("sub_courts")
         .select("*")
         .eq("court_id", id!)
         .order("court_number");
       if (error) throw error;
+      console.log("Raw Data Received:", data ?? []);
       return data as unknown as SubCourt[];
     },
     enabled: !!id,
@@ -89,6 +104,9 @@ export default function FacilityAdmin() {
 
   // Sync edit state when subCourts load
   useEffect(() => {
+    console.log("Fetching for Facility:", id);
+    console.log("Raw Data Received:", subCourts);
+
     if (subCourts.length > 0) {
       const state: Record<number, { sun: number; drain: number; note: string }> = {};
       for (const sc of subCourts) {
@@ -96,18 +114,28 @@ export default function FacilityAdmin() {
       }
       setEditState(state);
     }
-  }, [subCourts]);
+  }, [id, subCourts]);
 
   // Add courts mutation
   const addCourtsMutation = useMutation({
     mutationFn: async (numbers: number[]) => {
-      const inserts = numbers.map((n) => ({
+      const insertsFacility = numbers.map((n) => ({
+        facility_id: id!,
+        court_number: n,
+        sun_exposure: 3,
+        drainage: 3,
+      }));
+
+      const facilityInsert = await (supabase.from("sub_courts") as any).insert(insertsFacility);
+      if (!facilityInsert.error) return;
+
+      const insertsCourt = numbers.map((n) => ({
         court_id: id!,
         court_number: n,
         sun_exposure: 3,
         drainage: 3,
       }));
-      const { error } = await supabase.from("sub_courts").insert(inserts as any);
+      const { error } = await supabase.from("sub_courts").insert(insertsCourt as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -119,6 +147,13 @@ export default function FacilityAdmin() {
   // Save individual court
   const saveMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drain, note }: { courtNumber: number; sun: number; drain: number; note: string }) => {
+      const facilityUpdate = await (supabase.from("sub_courts") as any)
+        .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null })
+        .eq("facility_id", id!)
+        .eq("court_number", courtNumber);
+
+      if (!facilityUpdate.error) return;
+
       const { error } = await supabase
         .from("sub_courts")
         .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null } as any)
@@ -136,6 +171,13 @@ export default function FacilityAdmin() {
     mutationFn: async () => {
       const numbers = Array.from(selectedForBulk);
       for (const n of numbers) {
+        const facilityUpdate = await (supabase.from("sub_courts") as any)
+          .update({ sun_exposure: bulkSun, drainage: bulkDrain })
+          .eq("facility_id", id!)
+          .eq("court_number", n);
+
+        if (!facilityUpdate.error) continue;
+
         const { error } = await supabase
           .from("sub_courts")
           .update({ sun_exposure: bulkSun, drainage: bulkDrain } as any)
@@ -325,9 +367,17 @@ export default function FacilityAdmin() {
             })}
 
             {subCourts.length === 0 && (
-              <div className="text-center py-8 space-y-2">
+              <div className="text-center py-8 space-y-3">
                 <p className="text-sm text-muted-foreground">No individual courts configured yet.</p>
-                <p className="text-xs text-muted-foreground">Add court numbers above to set granular Sun & Drainage ratings.</p>
+                <p className="text-xs text-muted-foreground">Initialize the first 4 courts to start rating each one.</p>
+                <button
+                  onClick={() => addCourtsMutation.mutate([1, 2, 3, 4])}
+                  disabled={addCourtsMutation.isPending}
+                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4" />
+                  {addCourtsMutation.isPending ? "Initializing..." : "Initialize 4 Courts for this Facility"}
+                </button>
               </div>
             )}
           </>

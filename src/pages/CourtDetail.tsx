@@ -177,6 +177,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
     : null;
   const roundedDry = dryTime !== null ? Math.round(dryTime) : null;
   const squeegeeDry = roundedDry !== null && roundedDry > 0 ? calculateSqueegeeDryTime(roundedDry) : null;
+  const saturatedAirEstimate = Math.max(180, roundedDry ?? 180);
 
   // Find verifier info
   const verifierName = latestObservation?.status === "playable" ? latestObservation.display_name : null;
@@ -254,7 +255,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         <div className="text-center space-y-1">
           <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
           <p className="text-lg font-bold text-court-amber">High Humidity – Saturated Air</p>
-          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent moisture. Estimated minimum dry time: <span className="font-semibold">3 hours</span>.</p>
+          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent moisture. Estimated minimum dry time: <span className="font-semibold">{formatDryTime(saturatedAirEstimate)}</span>.</p>
         </div>
       )}
 
