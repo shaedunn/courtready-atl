@@ -17,16 +17,19 @@ export const supabase = createClient<Database>(SOVEREIGN_URL, SOVEREIGN_ANON_KEY
 
 // Export for edge function URL construction
 export const SOVEREIGN_PROJECT_ID = "racdnnitrapgqozxctsk";
+export const SOVEREIGN_ANON = SOVEREIGN_ANON_KEY;
 
 // Sovereign court type — matches the actual schema on racdnnitrapgqozxctsk
 export type SovereignCourt = {
   id: string;
   created_at: string;
   name: string;
-  address: string;
-  zip_code: string;
-  lat: number;
-  lon: number;
-  drainage_rating: number;
-  sun_exposure_rating: number;
+  location: string;
+  slug: string;
+  surface: string;
+  court_count: number;
+  latitude: number | null;
+  longitude: number | null;
+  sun_exposure: number;
+  drainage: number;
 };

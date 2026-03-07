@@ -1,11 +1,19 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle, Info } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { supabase, type SovereignCourt } from "@/lib/supabase";
+import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle, Info, Leaf } from "lucide-react";
+import { supabase, SOVEREIGN_ANON, type SovereignCourt } from "@/lib/supabase";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { calculateDryTime, HINDRANCE_OPTIONS, type Hindrance } from "@/lib/courts";
-import { Slider } from "@/components/ui/slider";
+import {
+  calculateDryTime,
+  formatDryTime,
+  HINDRANCE_OPTIONS,
+  RAINFALL_CATEGORIES,
+  type Hindrance,
+  type RainfallCategory,
+} from "@/lib/courts";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 type WeatherData = {
   temp: number;
@@ -21,16 +29,17 @@ export default function ReportForm({
   court: SovereignCourt;
   onSubmitted: () => void;
 }) {
-  const [rainfall, setRainfall] = useState("");
+  // Rainfall categorical picker
+  const [rainfallCategory, setRainfallCategory] = useState<RainfallCategory | null>(null);
+  const [customRainfall, setCustomRainfall] = useState("");
+
   const [squeegee, setSqueegee] = useState<0 | 1 | 2>(0);
   const [hindrances, setHindrances] = useState<Hindrance[]>([]);
+  const [debrisOnCourt, setDebrisOnCourt] = useState(false);
   const [observations, setObservations] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-
-  const [sunExposure, setSunExposure] = useState(court.sun_exposure_rating ?? 0.75);
-  const [drainage, setDrainage] = useState(court.drainage_rating ?? 0.5);
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -42,7 +51,7 @@ export default function ReportForm({
   const isManualEntry = !weather && !!weatherError && !weatherLoading;
 
   useEffect(() => {
-    if (!court.lat || !court.lon) {
+    if (!court.latitude || !court.longitude) {
       setWeatherError("No coordinates for this court");
       return;
     }
@@ -52,10 +61,10 @@ export default function ReportForm({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
+        apikey: SOVEREIGN_ANON,
+        Authorization: `Bearer ${SOVEREIGN_ANON}`,
       },
-      body: JSON.stringify({ lat: court.lat, lon: court.lon, t: ts }),
+      body: JSON.stringify({ lat: court.latitude, lon: court.longitude, t: ts }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -67,9 +76,26 @@ export default function ReportForm({
       })
       .catch(() => setWeatherError("Could not fetch weather"))
       .finally(() => setWeatherLoading(false));
-  }, [court.lat, court.lon]);
+  }, [court.latitude, court.longitude]);
 
-  const getEffectiveWeather = (): { temp: number; humidity: number; wind_speed: number; description: string; isManual: boolean } | null => {
+  // Derive effective rainfall from category
+  const getEffectiveRainfall = (): number | null => {
+    if (!rainfallCategory) return null;
+    if (rainfallCategory === "custom") {
+      const v = parseFloat(customRainfall);
+      return isNaN(v) || v < 0 ? null : v;
+    }
+    const cat = RAINFALL_CATEGORIES.find((c) => c.value === rainfallCategory);
+    return cat?.amount ?? null;
+  };
+
+  const getEffectiveWeather = (): {
+    temp: number;
+    humidity: number;
+    wind_speed: number;
+    description: string;
+    isManual: boolean;
+  } | null => {
     if (weather) {
       return { temp: weather.temp, humidity: weather.humidity, wind_speed: weather.wind_speed, description: weather.description ?? "Live", isManual: false };
     }
@@ -85,28 +111,33 @@ export default function ReportForm({
   };
 
   const effectiveWeather = getEffectiveWeather();
+  const effectiveRainfall = getEffectiveRainfall();
   const manualReady = isManualEntry && effectiveWeather !== null;
+
+  // Sovereign court values — debris applies 20% drainage penalty
+  const sunExposure = court.sun_exposure;
+  const effectiveDrainage = debrisOnCourt ? court.drainage * 0.8 : court.drainage;
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const rain = parseFloat(rainfall);
-      if (isNaN(rain) || rain < 0) throw new Error("Invalid rainfall");
-
+      if (effectiveRainfall === null || effectiveRainfall < 0) throw new Error("Invalid rainfall");
       const ew = getEffectiveWeather();
       if (!ew) throw new Error("Weather data required");
 
       const dryTime = calculateDryTime(
-        rain, squeegee, ew.temp, ew.humidity, ew.wind_speed,
-        sunExposure, drainage, hindrances
+        effectiveRainfall, squeegee, ew.temp, ew.humidity, ew.wind_speed,
+        sunExposure, effectiveDrainage, hindrances
       );
 
-      const obs = ew.isManual
-        ? `[Manual Entry] ${observations.trim() || ""}`
-        : observations.trim() || null;
+      const obs = [
+        ew.isManual ? "[Manual Entry]" : "",
+        debrisOnCourt ? "[Debris on Court]" : "",
+        observations.trim(),
+      ].filter(Boolean).join(" ") || null;
 
       const { error } = await supabase.from("reports").insert({
         court_id: court.id,
-        rainfall: rain,
+        rainfall: effectiveRainfall,
         squeegee_count: squeegee,
         sky_condition: ew.description,
         hindrances: hindrances,
@@ -117,7 +148,7 @@ export default function ReportForm({
         humidity: ew.humidity,
         wind_speed: ew.wind_speed,
         sun_exposure: sunExposure,
-        drainage: drainage,
+        drainage: effectiveDrainage,
       } as any);
       if (error) throw error;
     },
@@ -145,24 +176,37 @@ export default function ReportForm({
   };
 
   const previewDryTime = (() => {
-    const rain = parseFloat(rainfall);
+    const rain = effectiveRainfall;
     const ew = getEffectiveWeather();
-    if (isNaN(rain) || rain <= 0 || !ew) return null;
-    return calculateDryTime(rain, squeegee, ew.temp, ew.humidity, ew.wind_speed, sunExposure, drainage, hindrances);
+    if (rain === null || rain <= 0 || !ew) return null;
+    return calculateDryTime(rain, squeegee, ew.temp, ew.humidity, ew.wind_speed, sunExposure, effectiveDrainage, hindrances);
   })();
 
-  const canSubmit = !submitMutation.isPending && (!!weather || manualReady);
+  const canSubmit = !submitMutation.isPending && (!!weather || manualReady) && effectiveRainfall !== null && effectiveRainfall > 0;
 
   const inputClasses =
     "w-full bg-secondary text-foreground rounded-lg px-3 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50";
+
+  const humidityTooltip = (humidity: number) => {
+    if (humidity >= 80) return `Calculated for hyper-local humidity (${Math.round(humidity)}%). High moisture in the air significantly slows natural evaporation.`;
+    if (humidity >= 60) return `Humidity at ${Math.round(humidity)}%. Moderate moisture — expect standard drying times.`;
+    return `Humidity at ${Math.round(humidity)}%. Low moisture aids faster evaporation.`;
+  };
 
   return (
     <div className="bg-card rounded-lg p-5 border border-border space-y-4 card-glow">
       <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Captain's Report</h3>
 
+      {/* Weather badges */}
       <TooltipProvider delayDuration={100}>
         <div className="flex flex-wrap gap-2 items-center">
-          {weatherLoading && <Badge variant="secondary" className="animate-pulse"><Cloud className="w-3 h-3 mr-1" /> Fetching weather…</Badge>}
+          {weatherLoading && (
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-6 w-16 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          )}
           {isManualEntry && !manualReady && <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" /> Offline — manual entry below</Badge>}
           {isManualEntry && manualReady && <Badge variant="outline" className="border-accent text-accent-foreground"><AlertTriangle className="w-3 h-3 mr-1" /> Manual Entry</Badge>}
           {weather && (
@@ -174,11 +218,7 @@ export default function ReportForm({
                   <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[260px] text-xs">
-                  {weather.humidity >= 80
-                    ? `Calculated for hyper-local humidity (${Math.round(weather.humidity)}%). High moisture in the air significantly slows natural evaporation.`
-                    : weather.humidity >= 60
-                    ? `Humidity at ${Math.round(weather.humidity)}%. Moderate moisture — expect standard drying times.`
-                    : `Humidity at ${Math.round(weather.humidity)}%. Low moisture aids faster evaporation.`}
+                  {humidityTooltip(weather.humidity)}
                 </TooltipContent>
               </Tooltip>
               <Badge variant="secondary"><Wind className="w-3 h-3 mr-1" /> {Math.round(weather.wind_speed)} mph</Badge>
@@ -187,6 +227,7 @@ export default function ReportForm({
         </div>
       </TooltipProvider>
 
+      {/* Manual weather entry fallback */}
       {isManualEntry && (
         <div className="bg-destructive/10 rounded-lg p-3 space-y-3 border border-destructive/20">
           <p className="text-xs font-medium text-destructive">Weather API offline — enter conditions manually</p>
@@ -207,11 +248,43 @@ export default function ReportForm({
         </div>
       )}
 
+      {/* Rainfall categorical picker */}
       <div>
-        <label className="text-xs text-muted-foreground block mb-1.5">Rainfall (mm)</label>
-        <input type="number" min="0" step="0.5" value={rainfall} onChange={(e) => setRainfall(e.target.value)} placeholder="e.g. 5" className={inputClasses} />
+        <label className="text-xs text-muted-foreground block mb-1.5">Rainfall</label>
+        <div className="flex flex-wrap gap-2">
+          {RAINFALL_CATEGORIES.map((cat) => (
+            <button
+              key={cat.value}
+              type="button"
+              onClick={() => setRainfallCategory(cat.value)}
+              className={`text-xs px-3 py-2 rounded-lg border transition-colors ${
+                rainfallCategory === cat.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+              }`}
+            >
+              <span className="font-medium">{cat.label}</span>
+              {cat.amount !== null && <span className="block text-[10px] opacity-70">{cat.amount}"</span>}
+              {"description" in cat && cat.description && (
+                <span className="block text-[10px] opacity-60">{cat.description}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        {rainfallCategory === "custom" && (
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={customRainfall}
+            onChange={(e) => setCustomRainfall(e.target.value)}
+            placeholder='e.g. 0.15"'
+            className={`${inputClasses} mt-2`}
+          />
+        )}
       </div>
 
+      {/* Squeegee */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Squeegee Count</label>
         <select value={squeegee} onChange={(e) => setSqueegee(Number(e.target.value) as 0 | 1 | 2)} className={inputClasses}>
@@ -221,6 +294,19 @@ export default function ReportForm({
         </select>
       </div>
 
+      {/* Debris toggle */}
+      <div className="flex items-center justify-between bg-secondary/50 rounded-lg p-3 border border-border">
+        <div className="flex items-center gap-2">
+          <Leaf className="w-4 h-4 text-muted-foreground" />
+          <div>
+            <span className="text-xs font-medium">Debris on Court?</span>
+            <span className="text-[10px] text-muted-foreground block">Leaves/pine needles (−20% drainage)</span>
+          </div>
+        </div>
+        <Switch checked={debrisOnCourt} onCheckedChange={setDebrisOnCourt} />
+      </div>
+
+      {/* Physical hindrances */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Physical Hindrances</label>
         <div className="flex flex-wrap gap-2">
@@ -237,22 +323,7 @@ export default function ReportForm({
         </div>
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs text-muted-foreground">Sun Exposure</label>
-          <span className="text-xs font-mono text-muted-foreground">{Math.round(sunExposure * 100)}%</span>
-        </div>
-        <Slider value={[sunExposure]} onValueChange={([v]) => setSunExposure(v)} min={0} max={1} step={0.05} />
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs text-muted-foreground">Drainage</label>
-          <span className="text-xs font-mono text-muted-foreground">{Math.round(drainage * 100)}%</span>
-        </div>
-        <Slider value={[drainage]} onValueChange={([v]) => setDrainage(v)} min={0} max={1} step={0.05} />
-      </div>
-
+      {/* Observations */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Abstract Observations</label>
         <textarea value={observations} onChange={(e) => setObservations(e.target.value)}
@@ -260,6 +331,7 @@ export default function ReportForm({
           className={`${inputClasses} resize-none`} />
       </div>
 
+      {/* Photo */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Photo</label>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
@@ -271,13 +343,15 @@ export default function ReportForm({
         {photo && <img src={photo} alt="Court photo" className="mt-2 rounded-lg w-full h-32 object-cover" />}
       </div>
 
+      {/* Dry time preview */}
       {previewDryTime !== null && (
         <div className="bg-secondary/50 rounded-lg p-3 text-center">
           <span className="text-xs text-muted-foreground">Estimated dry time: </span>
-          <span className="text-sm font-bold font-mono text-primary">{previewDryTime} min</span>
+          <span className="text-sm font-bold font-mono text-primary">{formatDryTime(previewDryTime)}</span>
         </div>
       )}
 
+      {/* Actions */}
       <div className="flex gap-2">
         <button onClick={onSubmitted}
           className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-lg text-sm font-medium hover:brightness-110 transition-all">
@@ -285,7 +359,7 @@ export default function ReportForm({
         </button>
         <button onClick={() => submitMutation.mutate()} disabled={!canSubmit}
           className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50">
-          {submitMutation.isPending ? "Submitting..." : isManualEntry ? "Submit (Manual Entry)" : "Submit"}
+          {submitMutation.isPending ? "Submitting..." : isManualEntry ? "Submit (Manual)" : "Submit"}
         </button>
       </div>
     </div>

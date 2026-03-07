@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Search, Droplets, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase, type SovereignCourt } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Report = Tables<"reports">;
 
@@ -28,17 +29,35 @@ function getStatusText(report: Report | null) {
   return `~${Math.round(remaining)}m to dry`;
 }
 
+function CourtCardSkeleton() {
+  return (
+    <div className="bg-card rounded-lg p-4 border border-border">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <Skeleton className="w-2.5 h-2.5 rounded-full" />
+          <Skeleton className="h-3 w-16" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
-  const { data: courts = [] } = useQuery<SovereignCourt[]>({
+  const { data: courts = [], isLoading: courtsLoading } = useQuery<SovereignCourt[]>({
     queryKey: ["courts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("courts").select("*").order("name");
       if (error) throw error;
       return data as unknown as SovereignCourt[];
     },
+    placeholderData: keepPreviousData,
   });
 
   const { data: latestReports = {} } = useQuery({
@@ -56,12 +75,13 @@ export default function Dashboard() {
       return map;
     },
     refetchInterval: 30000,
+    placeholderData: keepPreviousData,
   });
 
   const filtered = courts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.address.toLowerCase().includes(search.toLowerCase())
+      c.location.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -87,32 +107,40 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-2">
-        {filtered.map((court) => {
-          const report = latestReports[court.id] || null;
-          return (
-            <button
-              key={court.id}
-              onClick={() => navigate(`/court/${court.id}`)}
-              className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-primary/30 transition-all active:scale-[0.98] card-glow"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-semibold text-sm text-card-foreground truncate">{court.name}</h2>
-                  <div className="flex items-center gap-1 mt-1">
-                    <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                    <span className="text-xs text-muted-foreground truncate">{court.address}</span>
+        {courtsLoading ? (
+          <>
+            <CourtCardSkeleton />
+            <CourtCardSkeleton />
+            <CourtCardSkeleton />
+            <CourtCardSkeleton />
+          </>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-muted-foreground text-sm py-12">No courts found</p>
+        ) : (
+          filtered.map((court) => {
+            const report = latestReports[court.id] || null;
+            return (
+              <button
+                key={court.id}
+                onClick={() => navigate(`/court/${court.id}`)}
+                className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-primary/30 transition-all active:scale-[0.98] card-glow"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-semibold text-sm text-card-foreground truncate">{court.name}</h2>
+                    <div className="flex items-center gap-1 mt-1">
+                      <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground truncate">{court.location}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(report)} status-pulse`} />
+                    <span className="text-[11px] font-mono text-muted-foreground">{getStatusText(report)}</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                  <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(report)} status-pulse`} />
-                  <span className="text-[11px] font-mono text-muted-foreground">{getStatusText(report)}</span>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-        {filtered.length === 0 && (
-          <p className="text-center text-muted-foreground text-sm py-12">No courts found</p>
+              </button>
+            );
+          })
         )}
       </main>
     </div>
