@@ -1,8 +1,15 @@
 // Re-export the Lovable Cloud Supabase client for all DB operations.
 // Edge function calls still use the sovereign project URL.
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
 export { supabase };
+
+// Sub-court row type (supports both schema variants during sync windows)
+export type SubCourtRow = Tables<"sub_courts"> & {
+  facility_id?: string;
+  hazard_description?: string | null;
+};
 
 // Sovereign edge function URL (weather API is deployed here)
 const SOVEREIGN_URL = "https://racdnnitrapgqozxctsk.supabase.co";
