@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Pencil, Sun, Droplets, Save, X, Plus, AlertTriangle } from "lucide-react";
+import { Pencil, Sun, Droplets, Save, X, Plus, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import type { SubCourt } from "@/components/court/SubCourtSelector";
@@ -16,6 +16,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
   const [sunVal, setSunVal] = useState(3);
   const [drainVal, setDrainVal] = useState(3);
   const [noteVal, setNoteVal] = useState("");
+  const [hazardVal, setHazardVal] = useState("");
 
   const { data: subCourts = [] } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", courtId],
@@ -44,7 +45,8 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
           sun_exposure: sunVal,
           drainage: drainVal,
           permanent_note: noteVal.trim() || null,
-        })
+          hazard_description: hazardVal.trim() || null,
+        } as any)
         .eq("id", editingCourt.id);
       if (error) throw error;
     },
@@ -74,6 +76,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     setSunVal(sc.sun_exposure);
     setDrainVal(sc.drainage);
     setNoteVal(sc.permanent_note || "");
+    setHazardVal(sc.hazard_description || "");
   };
 
   const seedAllMutation = useMutation({
