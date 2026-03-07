@@ -71,6 +71,22 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     setNoteVal(sc.permanent_note || "");
   };
 
+  const seedAllMutation = useMutation({
+    mutationFn: async () => {
+      const rows = Array.from({ length: courtCount }, (_, i) => ({
+        court_id: courtId,
+        court_number: i + 1,
+        sun_exposure: 3,
+        drainage: 3,
+      }));
+      const { error } = await supabase.from("sub_courts").insert(rows as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sub-courts", courtId] });
+    },
+  });
+
   const existingNumbers = subCourts.map((sc) => sc.court_number);
   const missingNumbers = Array.from({ length: courtCount }, (_, i) => i + 1).filter(
     (n) => !existingNumbers.includes(n)
@@ -78,13 +94,25 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
 
   if (!editing) {
     return (
-      <button
-        onClick={() => setEditing(true)}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <Pencil className="w-3.5 h-3.5" />
-        Edit Court Ratings
-      </button>
+      <div className="space-y-2">
+        <button
+          onClick={() => setEditing(true)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          Edit Court Ratings
+        </button>
+        {subCourts.length === 0 && courtCount > 0 && (
+          <button
+            onClick={() => seedAllMutation.mutate()}
+            disabled={seedAllMutation.isPending}
+            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-50"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {seedAllMutation.isPending ? "Adding..." : `Add Courts 1–${courtCount}`}
+          </button>
+        )}
+      </div>
     );
   }
 
