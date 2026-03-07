@@ -255,7 +255,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         <div className="text-center space-y-1">
           <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
           <p className="text-lg font-bold text-court-amber">High Humidity – Saturated Air</p>
-          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent moisture. Estimated minimum dry time: <span className="font-semibold">3 hours</span>.</p>
+          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent moisture. Estimated minimum dry time: <span className="font-semibold">{formatDryTime(saturatedAirEstimate)}</span>.</p>
         </div>
       )}
 
