@@ -239,6 +239,12 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity }: { r
             <span>·</span>
             <span>Squeegees: {report!.squeegee_count}</span>
           </div>
+          {highHumidity && (
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-court-amber">
+              <DropletsIcon className="w-3.5 h-3.5" />
+              <span>Humidity &gt;90% — evaporation stalled (min 120 min)</span>
+            </div>
+          )}
         </div>
       )}
 
