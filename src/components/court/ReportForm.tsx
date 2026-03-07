@@ -127,8 +127,8 @@ export default function ReportForm({
 
   // Use sub-court ratings if selected, otherwise facility defaults
   const selectedSubCourt = selectedCourtNumber !== null ? subCourts.find((sc) => sc.court_number === selectedCourtNumber) : null;
-  const sunExposure = selectedSubCourt ? selectedSubCourt.sun_exposure : court.sun_exposure;
-  const baseDrainage = selectedSubCourt ? selectedSubCourt.drainage : court.drainage;
+  const sunExposure = selectedSubCourt ? selectedSubCourt.sun_exposure_rating : court.sun_exposure;
+  const baseDrainage = selectedSubCourt ? selectedSubCourt.drainage_rating : court.drainage;
   const effectiveDrainage = debrisOnCourt ? baseDrainage * 0.8 : baseDrainage;
 
   const submitMutation = useMutation({
