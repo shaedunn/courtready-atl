@@ -58,9 +58,11 @@ export function calculateDryTime(
   // Base: 60 mins per 0.1 inch
   let minutes = effectiveRain * 600;
 
-  // Humidity penalty
-  if (humidity > 85) {
+  // Humidity penalty — 90%+ caps natural evaporation speed at 40% (×2.5)
+  if (humidity > 90) {
     minutes *= 2.5;
+  } else if (humidity > 85) {
+    minutes *= 2.0;
   } else if (humidity >= 70) {
     minutes *= 1.5;
   }
@@ -123,7 +125,7 @@ export function getCourtStatus(
   // Check for verified playable within last 30 minutes
   if (latestObservation?.status === "playable") {
     const obsAge = (Date.now() - new Date(latestObservation.created_at).getTime()) / 60000;
-    if (obsAge <= 30) return "verified";
+    if (obsAge <= 45) return "verified";
   }
 
   if (!report) return "playable";
