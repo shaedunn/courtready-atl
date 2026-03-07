@@ -11,17 +11,16 @@ export default function Instructions() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4">
+      <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4">
         <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-secondary transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+          <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent/80 transition-colors">
+            <ArrowLeft className="w-5 h-5 text-accent-foreground" />
           </button>
-          <h1 className="font-bold text-sm">How CourtReady Works</h1>
+          <h1 className="font-bold text-sm text-accent-foreground">How CourtReady Works</h1>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Towel-Roll Protocol */}
         <section className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
           <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-court-green" />
@@ -37,33 +36,31 @@ export default function Instructions() {
            </p>
         </section>
 
-        {/* Squeegee Best Practices */}
         <section className="bg-card rounded-lg p-5 border border-border card-glow space-y-3">
           <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <Scissors className="w-4 h-4 text-primary" />
+            <Scissors className="w-4 h-4 text-navy" />
             Squeegee Best Practices
           </h2>
           <ul className="space-y-2 text-xs text-muted-foreground">
             <li className="flex items-start gap-2">
-              <span className="text-primary font-bold mt-0.5">1.</span>
+              <span className="text-navy font-bold mt-0.5">1.</span>
               Push water toward the edges and low spots — never toward the net.
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-primary font-bold mt-0.5">2.</span>
+              <span className="text-navy font-bold mt-0.5">2.</span>
               Overlap each pass by 50% to prevent leaving wet streaks.
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-primary font-bold mt-0.5">3.</span>
+              <span className="text-navy font-bold mt-0.5">3.</span>
               After squeegeeing, tap "I am Squeegeeing This Court" — the dry timer recalculates automatically (≈40% reduction).
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-primary font-bold mt-0.5">4.</span>
+              <span className="text-navy font-bold mt-0.5">4.</span>
               One squeegee pass on a standard court takes ≈8–12 minutes.
             </li>
           </ul>
         </section>
 
-        {/* Captain's Report Guide */}
         <section className="bg-card rounded-lg p-5 border border-border card-glow space-y-3">
           <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
             <Droplets className="w-4 h-4 text-court-amber" />
@@ -72,7 +69,7 @@ export default function Instructions() {
           <p className="text-xs text-muted-foreground leading-relaxed">
             When you arrive at a wet court, submit a Captain's Report with the rainfall amount and sky conditions. The app calculates an estimated dry time using weather data, court drainage, and sun exposure ratings.
           </p>
-          <div className="flex items-start gap-2 bg-secondary/50 rounded-lg p-3 border border-border">
+          <div className="flex items-start gap-2 bg-secondary rounded-lg p-3 border border-border">
             <Info className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
             <p className="text-xs text-muted-foreground">
               Weather data (temperature, humidity, wind) is fetched automatically when your court has GPS coordinates set.
@@ -80,7 +77,6 @@ export default function Instructions() {
           </div>
         </section>
 
-        {/* Verification System */}
         <section className="bg-card rounded-lg p-5 border border-border card-glow space-y-3">
           <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-court-green" />
@@ -108,7 +104,6 @@ export default function Instructions() {
           </div>
         </section>
 
-        {/* Hazard Warnings */}
         <section className="bg-card rounded-lg p-5 border border-border card-glow space-y-3">
           <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-destructive" />

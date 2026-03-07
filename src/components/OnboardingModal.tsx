@@ -33,12 +33,6 @@ export default function OnboardingModal() {
     setOpen(false);
   };
 
-  const goToInstructions = () => {
-    localStorage.setItem(ONBOARDED_KEY, "true");
-    setOpen(false);
-    navigate("/instructions");
-  };
-
   const handleContributorChoice = (yes: boolean) => {
     if (yes) {
       localStorage.setItem(CONTRIBUTOR_KEY, "true");
@@ -54,8 +48,8 @@ export default function OnboardingModal() {
         {step === "welcome" && (
           <>
             <DialogHeader className="items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Droplets className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-full bg-navy/10 flex items-center justify-center mb-2">
+                <Droplets className="w-6 h-6 text-navy" />
               </div>
               <DialogTitle className="text-base">Welcome to the CourtReady Pilot</DialogTitle>
               <DialogDescription className="text-xs leading-relaxed pt-2">
@@ -63,7 +57,7 @@ export default function OnboardingModal() {
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2 pt-2">
-              <Button onClick={() => setStep("contributor")} className="w-full">
+              <Button onClick={() => setStep("contributor")} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
                 Continue
               </Button>
               <Button variant="ghost" onClick={dismiss} className="w-full text-xs text-muted-foreground">
@@ -76,16 +70,16 @@ export default function OnboardingModal() {
         {step === "contributor" && (
           <>
             <DialogHeader className="items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Shield className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-full bg-navy/10 flex items-center justify-center mb-2">
+                <Shield className="w-6 h-6 text-navy" />
               </div>
               <DialogTitle className="text-base">Will you be contributing?</DialogTitle>
               <DialogDescription className="text-xs leading-relaxed pt-2">
-                Contributors submit court observations, verify conditions, and help calibrate the physics engine. You'll earn a <span className="font-semibold text-primary">Captain</span> badge.
+                Will you be contributing court observations? These help calibrate the Atlanta engine for everyone. You'll earn a <span className="font-semibold text-navy">Captain</span> badge.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2 pt-2">
-              <Button onClick={() => handleContributorChoice(true)} className="w-full gap-2">
+              <Button onClick={() => handleContributorChoice(true)} className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
                 <Shield className="w-4 h-4" />
                 Yes, I'm a Captain
               </Button>

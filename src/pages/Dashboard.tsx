@@ -63,7 +63,7 @@ function CourtCard({
     <div className="relative">
       <button
         onClick={() => onNavigate(court.id)}
-        className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-primary/30 transition-all active:scale-[0.98] card-glow"
+        className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-navy/30 transition-all active:scale-[0.98] card-glow"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -86,7 +86,7 @@ function CourtCard({
         className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-secondary transition-colors z-[1]"
         aria-label={isPinned ? "Unpin court" : "Pin court"}
       >
-        <Pin className={`w-3.5 h-3.5 transition-colors ${isPinned ? "text-primary fill-primary" : "text-muted-foreground/40"}`} />
+        <Pin className={`w-3.5 h-3.5 transition-colors ${isPinned ? "text-navy fill-navy" : "text-muted-foreground/40"}`} />
       </button>
     </div>
   );
@@ -112,7 +112,6 @@ function PilotTicker() {
         items.push({ text: `${label} — ${o.display_name}`, time: ago });
       }
       items.sort((a, b) => a.time.localeCompare(b.time));
-      // Prepend pilot milestone
       items.unshift({ text: "🎯 Pilot Phase: 14 Facilities | Goal: 1,000 Verified Reports", time: "" });
       return items.slice(0, 6);
     },
@@ -122,14 +121,13 @@ function PilotTicker() {
   if (recentActivity.length === 0) return null;
 
   return (
-    <div className="overflow-hidden bg-secondary/50 border-b border-border">
+    <div className="overflow-hidden bg-accent/5 border-b border-border">
       <div className="flex animate-scroll-x gap-8 px-4 py-1.5 whitespace-nowrap">
         {recentActivity.map((item, i) => (
          <span key={i} className="text-[11px] text-muted-foreground flex-shrink-0">
             {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
           </span>
         ))}
-        {/* Duplicate for seamless scroll */}
         {recentActivity.map((item, i) => (
          <span key={`dup-${i}`} className="text-[11px] text-muted-foreground flex-shrink-0">
             {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
@@ -224,36 +222,38 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <OnboardingModal />
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4 pt-safe">
+      <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4 pt-safe">
         <div className="max-w-lg mx-auto py-4">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Droplets className="w-5 h-5 text-primary" />
-              <h1 className="text-lg font-bold tracking-tight">CourtReady <span className="text-primary">ATL</span></h1>
+              <Droplets className="w-5 h-5 text-lime" />
+              <h1 className="text-lg font-extrabold tracking-tight text-accent-foreground">
+                CourtReady <span className="text-lime">ATL</span>
+              </h1>
               {isCaptain && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-lime bg-lime/15 px-2 py-0.5 rounded-full border border-lime/30">
                   <Shield className="w-3 h-3" /> Captain
                 </span>
               )}
             </div>
             <button
               onClick={() => navigate("/instructions")}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors ${!hasVisitedInstructions ? "animate-pulse" : ""}`}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-accent/80 transition-colors ${!hasVisitedInstructions ? "animate-pulse" : ""}`}
               aria-label="Instructions"
             >
-              <BookOpen className={`w-4 h-4 ${!hasVisitedInstructions ? "text-primary" : "text-muted-foreground"}`} />
-              {!hasVisitedInstructions && <span className="text-[10px] font-semibold text-primary">Start Here</span>}
+              <BookOpen className={`w-4 h-4 ${!hasVisitedInstructions ? "text-lime" : "text-accent-foreground/70"}`} />
+              {!hasVisitedInstructions && <span className="text-[10px] font-semibold text-lime">Start Here</span>}
             </button>
           </div>
-          <p className="text-xs text-muted-foreground tracking-wide uppercase mb-4">Atlanta Court Conditions</p>
+          <p className="text-xs text-accent-foreground/70 tracking-wide uppercase mb-4">Atlanta Court Conditions</p>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-foreground/50" />
             <input
               type="text"
               placeholder="Search courts..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-secondary text-foreground placeholder:text-muted-foreground rounded-lg pl-10 pr-4 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all"
+              className="w-full bg-accent-foreground/10 text-accent-foreground placeholder:text-accent-foreground/40 rounded-lg pl-10 pr-4 py-2.5 text-sm border border-accent-foreground/10 focus:outline-none focus:ring-2 focus:ring-lime/50 transition-all"
             />
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function Dashboard() {
                 localStorage.removeItem("courtready-cache-busted-v3");
                 location.reload();
               }}
-              className="text-xs text-primary underline"
+              className="text-xs text-navy underline font-medium"
             >
               Force cache clear & reload
             </button>
