@@ -121,6 +121,23 @@ export default function FacilityAdmin() {
     },
   });
 
+  // Add single court with ratings via modal
+  const addSingleCourtMutation = useMutation({
+    mutationFn: async ({ courtNumber, sun, drainage }: { courtNumber: number; sun: number; drainage: number }) => {
+      const { error } = await (supabase.from("sub_courts") as any).insert({
+        facility_id: id!,
+        court_number: courtNumber,
+        sun_exposure: sun,
+        drainage: drainage,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sub-courts", id] });
+      setShowAddModal(false);
+    },
+  });
+
   // Save individual court
   const saveMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drain, note }: { courtNumber: number; sun: number; drain: number; note: string }) => {
