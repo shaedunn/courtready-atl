@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle } from "lucide-react";
+import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle, Info } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { calculateDryTime, HINDRANCE_OPTIONS, type Hindrance } from "@/lib/courts";
