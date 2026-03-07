@@ -87,24 +87,14 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
 
   const seedAllMutation = useMutation({
     mutationFn: async () => {
-      const rowsFacility = Array.from({ length: courtCount }, (_, i) => ({
+      const rows = Array.from({ length: courtCount }, (_, i) => ({
         facility_id: courtId,
         court_number: i + 1,
         sun_exposure: 3,
         drainage: 3,
       }));
 
-      const facilityInsert = await (supabase.from("sub_courts") as any).insert(rowsFacility);
-      if (!facilityInsert.error) return;
-
-      const rowsCourt = Array.from({ length: courtCount }, (_, i) => ({
-        court_id: courtId,
-        court_number: i + 1,
-        sun_exposure: 3,
-        drainage: 3,
-      }));
-
-      const { error } = await supabase.from("sub_courts").insert(rowsCourt as any);
+      const { error } = await (supabase.from("sub_courts") as any).insert(rows);
       if (error) throw error;
     },
     onSuccess: () => {
