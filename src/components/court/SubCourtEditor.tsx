@@ -20,12 +20,17 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
   const { data: subCourts = [] } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", courtId],
     queryFn: async () => {
+      console.log(`[SubCourtEditor] Fetching sub_courts for court_id=${courtId}`);
       const { data, error } = await supabase
         .from("sub_courts")
         .select("*")
         .eq("court_id", courtId)
         .order("court_number");
-      if (error) throw error;
+      if (error) {
+        console.error(`[SubCourtEditor] Query error:`, error);
+        throw error;
+      }
+      console.log(`[SubCourtEditor] Returned ${data?.length ?? 0} sub_courts:`, data);
       return data as unknown as SubCourt[];
     },
   });
