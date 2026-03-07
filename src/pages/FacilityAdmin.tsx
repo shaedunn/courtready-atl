@@ -62,24 +62,14 @@ export default function FacilityAdmin() {
     queryFn: async () => {
       console.log("Fetching for Facility:", id);
 
-      const facilityQuery = await (supabase.from("sub_courts") as any)
+      const { data, error } = await (supabase.from("sub_courts") as any)
         .select("*")
         .eq("facility_id", id!)
         .order("court_number");
 
-      if (!facilityQuery.error) {
-        console.log("Raw Data Received:", facilityQuery.data ?? []);
-        return (facilityQuery.data ?? []) as SubCourt[];
-      }
-
-      const { data, error } = await supabase
-        .from("sub_courts")
-        .select("*")
-        .eq("court_id", id!)
-        .order("court_number");
       if (error) throw error;
       console.log("Raw Data Received:", data ?? []);
-      return data as unknown as SubCourt[];
+      return (data ?? []) as SubCourt[];
     },
     enabled: !!id,
   });
