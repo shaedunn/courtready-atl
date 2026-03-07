@@ -22,27 +22,18 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     queryKey: ["sub-courts", courtId],
     queryFn: async () => {
       console.log("Fetching for Facility:", courtId);
-      const facilityQuery = await (supabase.from("sub_courts") as any)
+      const { data, error } = await (supabase.from("sub_courts") as any)
         .select("*")
         .eq("facility_id", courtId)
         .order("court_number");
 
-      if (!facilityQuery.error) {
-        console.log("Raw Data Received:", facilityQuery.data ?? []);
-        return (facilityQuery.data ?? []) as SubCourt[];
-      }
-
-      const { data, error } = await supabase
-        .from("sub_courts")
-        .select("*")
-        .eq("court_id", courtId)
-        .order("court_number");
       if (error) {
         console.error(`[SubCourtEditor] Query error:`, error);
         throw error;
       }
+
       console.log("Raw Data Received:", data ?? []);
-      return data as unknown as SubCourt[];
+      return (data ?? []) as SubCourt[];
     },
   });
 
@@ -73,20 +64,12 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
 
   const addCourtMutation = useMutation({
     mutationFn: async (courtNumber: number) => {
-      const facilityInsert = await (supabase.from("sub_courts") as any).insert({
+      const { error } = await (supabase.from("sub_courts") as any).insert({
         facility_id: courtId,
         court_number: courtNumber,
         sun_exposure: 3,
         drainage: 3,
       });
-      if (!facilityInsert.error) return;
-
-      const { error } = await supabase.from("sub_courts").insert({
-        court_id: courtId,
-        court_number: courtNumber,
-        sun_exposure: 3,
-        drainage: 3,
-      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -104,24 +87,14 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
 
   const seedAllMutation = useMutation({
     mutationFn: async () => {
-      const rowsFacility = Array.from({ length: courtCount }, (_, i) => ({
+      const rows = Array.from({ length: courtCount }, (_, i) => ({
         facility_id: courtId,
         court_number: i + 1,
         sun_exposure: 3,
         drainage: 3,
       }));
 
-      const facilityInsert = await (supabase.from("sub_courts") as any).insert(rowsFacility);
-      if (!facilityInsert.error) return;
-
-      const rowsCourt = Array.from({ length: courtCount }, (_, i) => ({
-        court_id: courtId,
-        court_number: i + 1,
-        sun_exposure: 3,
-        drainage: 3,
-      }));
-
-      const { error } = await supabase.from("sub_courts").insert(rowsCourt as any);
+      const { error } = await (supabase.from("sub_courts") as any).insert(rows);
       if (error) throw error;
     },
     onSuccess: () => {

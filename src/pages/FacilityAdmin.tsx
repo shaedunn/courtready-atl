@@ -5,18 +5,7 @@ import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-
-type SubCourt = {
-  id: string;
-  court_id?: string;
-  facility_id?: string;
-  court_number: number;
-  sun_exposure: number;
-  drainage: number;
-  permanent_note: string | null;
-  hazard_description?: string | null;
-  created_at: string;
-};
+import type { SubCourtRow as SubCourt } from "@/types/supabase";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Poor",
@@ -73,24 +62,14 @@ export default function FacilityAdmin() {
     queryFn: async () => {
       console.log("Fetching for Facility:", id);
 
-      const facilityQuery = await (supabase.from("sub_courts") as any)
+      const { data, error } = await (supabase.from("sub_courts") as any)
         .select("*")
         .eq("facility_id", id!)
         .order("court_number");
 
-      if (!facilityQuery.error) {
-        console.log("Raw Data Received:", facilityQuery.data ?? []);
-        return (facilityQuery.data ?? []) as SubCourt[];
-      }
-
-      const { data, error } = await supabase
-        .from("sub_courts")
-        .select("*")
-        .eq("court_id", id!)
-        .order("court_number");
       if (error) throw error;
       console.log("Raw Data Received:", data ?? []);
-      return data as unknown as SubCourt[];
+      return (data ?? []) as SubCourt[];
     },
     enabled: !!id,
   });
@@ -119,23 +98,14 @@ export default function FacilityAdmin() {
   // Add courts mutation
   const addCourtsMutation = useMutation({
     mutationFn: async (numbers: number[]) => {
-      const insertsFacility = numbers.map((n) => ({
+      const inserts = numbers.map((n) => ({
         facility_id: id!,
         court_number: n,
         sun_exposure: 3,
         drainage: 3,
       }));
 
-      const facilityInsert = await (supabase.from("sub_courts") as any).insert(insertsFacility);
-      if (!facilityInsert.error) return;
-
-      const insertsCourt = numbers.map((n) => ({
-        court_id: id!,
-        court_number: n,
-        sun_exposure: 3,
-        drainage: 3,
-      }));
-      const { error } = await supabase.from("sub_courts").insert(insertsCourt as any);
+      const { error } = await (supabase.from("sub_courts") as any).insert(inserts);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -147,18 +117,11 @@ export default function FacilityAdmin() {
   // Save individual court
   const saveMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drain, note }: { courtNumber: number; sun: number; drain: number; note: string }) => {
-      const facilityUpdate = await (supabase.from("sub_courts") as any)
+      const { error } = await (supabase.from("sub_courts") as any)
         .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null })
         .eq("facility_id", id!)
         .eq("court_number", courtNumber);
 
-      if (!facilityUpdate.error) return;
-
-      const { error } = await supabase
-        .from("sub_courts")
-        .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null } as any)
-        .eq("court_id", id!)
-        .eq("court_number", courtNumber);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -171,18 +134,11 @@ export default function FacilityAdmin() {
     mutationFn: async () => {
       const numbers = Array.from(selectedForBulk);
       for (const n of numbers) {
-        const facilityUpdate = await (supabase.from("sub_courts") as any)
+        const { error } = await (supabase.from("sub_courts") as any)
           .update({ sun_exposure: bulkSun, drainage: bulkDrain })
           .eq("facility_id", id!)
           .eq("court_number", n);
 
-        if (!facilityUpdate.error) continue;
-
-        const { error } = await supabase
-          .from("sub_courts")
-          .update({ sun_exposure: bulkSun, drainage: bulkDrain } as any)
-          .eq("court_id", id!)
-          .eq("court_number", n);
         if (error) throw error;
       }
     },

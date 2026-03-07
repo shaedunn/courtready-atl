@@ -1,15 +1,7 @@
 import { AlertTriangle, ShieldAlert } from "lucide-react";
+import type { SubCourtRow } from "@/types/supabase";
 
-export type SubCourt = {
-  id: string;
-  court_id?: string;
-  facility_id?: string;
-  court_number: number;
-  sun_exposure: number;
-  drainage: number;
-  permanent_note: string | null;
-  hazard_description: string | null;
-};
+export type SubCourt = SubCourtRow;
 
 export default function SubCourtSelector({
   subCourts,

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import ReportForm from "@/components/court/ReportForm";
 import SubCourtEditor from "@/components/court/SubCourtEditor";
+import type { SubCourtRow } from "@/types/supabase";
 
 type Report = Tables<"reports">;
 
@@ -171,6 +172,9 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   const status = getCourtStatus(report, latestObservation, currentHumidity, recentRain);
   const config = STATUS_CONFIG[status];
   const highHumidity = (currentHumidity ?? 0) > 90;
+  const saturatedAirHardLock = highHumidity && report?.rainfall !== null;
+  const displayLabel = saturatedAirHardLock ? "Saturated Air - UNPLAYABLE" : config.label;
+  const displayColor = saturatedAirHardLock ? "bg-destructive" : config.color;
 
   const dryTime = report
     ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
@@ -188,7 +192,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   // Rain reset note
   const showRainResetNote = report && latestObservation?.status === "playable" && status !== "verified";
 
-  const showActiveStatus = status === "drying" || status === "wet";
+  const showActiveStatus = !saturatedAirHardLock && (status === "drying" || status === "wet");
 
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
@@ -201,8 +205,8 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
             </span>
           )}
           <Badge variant="outline" className="text-[10px] px-2 py-0.5 gap-1.5 border-border">
-            <span className={`w-2 h-2 rounded-full ${config.color} inline-block`} />
-            {config.label}
+            <span className={`w-2 h-2 rounded-full ${displayColor} inline-block`} />
+            {displayLabel}
           </Badge>
         </div>
       </div>
@@ -217,6 +221,19 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
               by <span className="font-medium text-foreground">{verifierName}</span> at {verifierTime}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Hard safety lock: saturated air is unplayable */}
+      {saturatedAirHardLock && (
+        <div className="text-center space-y-2">
+          <AlertTriangle className="w-6 h-6 text-destructive mx-auto" />
+          <p className="text-lg font-bold text-destructive">Status: Saturated Air - UNPLAYABLE</p>
+          <p className="text-xs text-muted-foreground">Humidity &gt;90% with moisture reported. Minimum dry timer is locked.</p>
+          <div className="flex items-center justify-center gap-2">
+            <Clock className="w-5 h-5 text-destructive" />
+            <span className="text-xl font-bold font-mono text-destructive">{formatDryTime(saturatedAirEstimate)}</span>
+          </div>
         </div>
       )}
 
@@ -251,7 +268,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
       )}
 
       {/* Caution: high humidity + saturated air */}
-      {status === "caution" && (
+      {!saturatedAirHardLock && status === "caution" && (
         <div className="text-center space-y-1">
           <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
           <p className="text-lg font-bold text-court-amber">High Humidity – Saturated Air</p>
@@ -260,7 +277,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
       )}
 
       {/* Dry / no reports */}
-      {status === "playable" && (
+      {!saturatedAirHardLock && status === "playable" && (
         <div className="text-center space-y-1">
           <Sparkles className="w-6 h-6 text-primary mx-auto" />
           <p className="text-lg font-bold text-primary text-glow">Courts are Dry</p>
@@ -285,7 +302,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
       {showActiveStatus && report && <SqueegeeAction report={report} courtId={courtId} />}
 
       {/* Status Verification */}
-      {(showActiveStatus || status === "playable") && report && (
+      {!saturatedAirHardLock && (showActiveStatus || status === "playable") && report && (
         <StatusVerification courtId={courtId} reportId={report?.id ?? null} />
       )}
 
@@ -400,7 +417,40 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
 export default function CourtDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+
+  const { data: subCourts = [] } = useQuery<SubCourtRow[]>({
+    queryKey: ["sub-courts", id],
+    queryFn: async () => {
+      console.log("Fetching for Facility:", id);
+      const { data, error } = await (supabase.from("sub_courts") as any)
+        .select("*")
+        .eq("facility_id", id!)
+        .order("court_number");
+      if (error) throw error;
+      console.log("Raw Data Received:", data ?? []);
+      return (data ?? []) as SubCourtRow[];
+    },
+    enabled: !!id,
+  });
+
+  const forceCreateSubCourtsMutation = useMutation({
+    mutationFn: async () => {
+      const rows = Array.from({ length: 4 }, (_, index) => ({
+        facility_id: id!,
+        court_number: index + 1,
+        sun_exposure: 3,
+        drainage: 3,
+      }));
+
+      const { error } = await (supabase.from("sub_courts") as any).insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sub-courts", id] });
+    },
+  });
 
   const { data: court, isLoading } = useQuery<SovereignCourt>({
     queryKey: ["court", id],
@@ -534,6 +584,18 @@ export default function CourtDetail() {
             <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
             <p className="text-xs text-destructive">Previous Playable status voided due to new rainfall detected by weather API.</p>
           </div>
+        )}
+
+        {subCourts.length === 0 && (
+          <button
+            onClick={() => forceCreateSubCourtsMutation.mutate()}
+            disabled={forceCreateSubCourtsMutation.isPending}
+            className="w-full bg-primary text-primary-foreground border border-primary/40 font-extrabold py-4 rounded-xl text-sm tracking-wide shadow-lg shadow-primary/35 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60"
+          >
+            {forceCreateSubCourtsMutation.isPending
+              ? "Creating Sub-Courts..."
+              : "Force-Create 4 Sub-Courts for This Facility"}
+          </button>
         )}
 
         {!showForm && (
