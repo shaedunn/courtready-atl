@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import CourtDetail from "./pages/CourtDetail";
 import FacilityAdmin from "./pages/FacilityAdmin";
+import Instructions from "./pages/Instructions";
 import NotFound from "./pages/NotFound";
 import SplashScreen from "./components/SplashScreen";
 
@@ -39,6 +40,7 @@ const App = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/court/:id" element={<CourtDetail />} />
             <Route path="/court/:id/admin" element={<FacilityAdmin />} />
+            <Route path="/instructions" element={<Instructions />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
