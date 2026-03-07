@@ -277,7 +277,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
       )}
 
       {/* Dry / no reports */}
-      {status === "playable" && (
+      {!saturatedAirHardLock && status === "playable" && (
         <div className="text-center space-y-1">
           <Sparkles className="w-6 h-6 text-primary mx-auto" />
           <p className="text-lg font-bold text-primary text-glow">Courts are Dry</p>
