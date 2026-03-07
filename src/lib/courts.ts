@@ -60,9 +60,9 @@ export function calculateDryTime(
   // Base: 60 mins per 0.1 inch
   let minutes = effectiveRain * 600;
 
-  // Humidity penalty — 90%+ caps natural evaporation speed at 40% (×2.5)
+  // Humidity penalty — 90%+ caps natural evaporation speed at ~33% (×3.0, saturated air)
   if (humidity > 90) {
-    minutes *= 2.5;
+    minutes *= 3.0;
   } else if (humidity > 85) {
     minutes *= 2.0;
   } else if (humidity >= 70) {
