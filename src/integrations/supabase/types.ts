@@ -192,6 +192,44 @@ export type Database = {
           },
         ]
       }
+      sub_courts: {
+        Row: {
+          court_id: string
+          court_number: number
+          created_at: string
+          drainage: number
+          id: string
+          permanent_note: string | null
+          sun_exposure: number
+        }
+        Insert: {
+          court_id: string
+          court_number: number
+          created_at?: string
+          drainage?: number
+          id?: string
+          permanent_note?: string | null
+          sun_exposure?: number
+        }
+        Update: {
+          court_id?: string
+          court_number?: number
+          created_at?: string
+          drainage?: number
+          id?: string
+          permanent_note?: string | null
+          sun_exposure?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sub_courts_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weather_cache: {
         Row: {
           cache_key: string
