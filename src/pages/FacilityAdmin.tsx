@@ -223,9 +223,26 @@ export default function FacilityAdmin() {
           </div>
         ) : (
           <>
-            {/* Add Courts */}
+            {/* Add Court Modal */}
+            <AddCourtModal
+              open={showAddModal}
+              onOpenChange={setShowAddModal}
+              onAdd={(num, sun, drain) => addSingleCourtMutation.mutate({ courtNumber: num, sun, drainage: drain })}
+              existingNumbers={subCourts.map((sc) => sc.court_number)}
+              isPending={addSingleCourtMutation.isPending}
+            />
+
+            {/* Add Courts Section */}
             <div className="bg-card rounded-lg p-4 border border-border card-glow space-y-3">
-              <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Add Court Numbers</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Add Court Numbers</h3>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Court
+                </button>
+              </div>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -240,10 +257,10 @@ export default function FacilityAdmin() {
                   className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
-                  Add
+                  Bulk
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground">Comma-separated court numbers. Each gets its own Sun & Drainage ratings.</p>
+              <p className="text-[10px] text-muted-foreground">Use the <button onClick={() => setShowAddModal(true)} className="text-primary font-medium underline">+ Add Court</button> button for individual courts with ratings, or bulk-add with comma-separated numbers above.</p>
             </div>
 
             {/* Bulk Update */}
