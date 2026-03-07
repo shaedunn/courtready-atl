@@ -55,7 +55,6 @@ export default function GuidedTour({ onComplete }: { onComplete: () => void }) {
       setVisible(true);
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     } else {
-      // Skip missing steps
       if (currentStep < TOUR_STEPS.length - 1) {
         setCurrentStep((s) => s + 1);
       } else {
@@ -92,7 +91,6 @@ export default function GuidedTour({ onComplete }: { onComplete: () => void }) {
 
   if (!visible || !targetRect || !step) return null;
 
-  // Calculate tooltip position
   const tooltipStyle: React.CSSProperties = {};
   const arrowStyle: React.CSSProperties = {};
   const gap = 12;
@@ -109,35 +107,30 @@ export default function GuidedTour({ onComplete }: { onComplete: () => void }) {
     arrowStyle.left = Math.min(140, targetRect.left + targetRect.width / 2 - (tooltipStyle.left as number));
   }
 
-  // Ensure tooltip stays within viewport
   if (typeof tooltipStyle.left === "number") {
     tooltipStyle.left = Math.min(tooltipStyle.left, window.innerWidth - 296);
   }
 
   return (
     <div className="fixed inset-0 z-[100]">
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/60 transition-opacity duration-300" onClick={finish} />
+      <div className="absolute inset-0 bg-foreground/40 transition-opacity duration-300" onClick={finish} />
 
-      {/* Spotlight cutout */}
       <div
-        className="absolute rounded-lg ring-2 ring-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] transition-all duration-300"
+        className="absolute rounded-lg ring-2 ring-navy transition-all duration-300"
         style={{
           top: targetRect.top - 4,
           left: targetRect.left - 4,
           width: targetRect.width + 8,
           height: targetRect.height + 8,
           backgroundColor: "transparent",
-          boxShadow: "none",
+          boxShadow: "0 0 0 9999px hsla(var(--foreground) / 0.4)",
         }}
       />
 
-      {/* Tooltip */}
       <div
         className="absolute w-[280px] bg-card border border-border rounded-xl p-4 shadow-2xl animate-fade-in z-[101]"
         style={tooltipStyle}
       >
-        {/* Arrow */}
         <div
           className="absolute w-3 h-3 bg-card border-l border-t border-border rotate-45"
           style={{
@@ -154,12 +147,12 @@ export default function GuidedTour({ onComplete }: { onComplete: () => void }) {
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed mb-3">{step.description}</p>
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground/60 font-mono">
+          <span className="text-[10px] text-muted-foreground/60">
             {currentStep + 1}/{TOUR_STEPS.length}
           </span>
           <button
             onClick={next}
-            className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold text-navy hover:text-navy/80 transition-colors"
           >
             {currentStep < TOUR_STEPS.length - 1 ? (
               <>Next <ChevronRight className="w-3.5 h-3.5" /></>

@@ -8,15 +8,23 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-const RATING_LABELS: Record<number, string> = {
-  1: "Poor",
-  2: "Below Avg",
+const SUN_LABELS: Record<number, string> = {
+  1: "Heavy Shade",
+  2: "Mostly Shade",
+  3: "Partial Sun",
+  4: "Mostly Sun",
+  5: "Full Sun",
+};
+
+const DRAINAGE_LABELS: Record<number, string> = {
+  1: "Poor / Pools",
+  2: "Slow Drain",
   3: "Average",
   4: "Good",
   5: "Excellent",
 };
 
-function RatingPicker({ value, onChange, icon, label }: { value: number; onChange: (v: number) => void; icon: React.ReactNode; label: string }) {
+function RatingPicker({ value, onChange, icon, label, descriptiveLabels }: { value: number; onChange: (v: number) => void; icon: React.ReactNode; label: string; descriptiveLabels: Record<number, string> }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
@@ -31,15 +39,15 @@ function RatingPicker({ value, onChange, icon, label }: { value: number; onChang
             onClick={() => onChange(r)}
             className={`flex-1 py-1.5 rounded text-xs font-medium transition-all ${
               value === r
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground border border-border hover:border-primary/30"
+                ? "bg-accent text-accent-foreground"
+                : "bg-secondary text-muted-foreground border border-border hover:border-navy/30"
             }`}
           >
             {r}
           </button>
         ))}
       </div>
-      <p className="text-[10px] text-muted-foreground text-center">{RATING_LABELS[value]}</p>
+      <p className="text-[10px] text-muted-foreground text-center">{descriptiveLabels[value]}</p>
     </div>
   );
 }
@@ -70,7 +78,6 @@ export default function AddCourtModal({ open, onOpenChange, onAdd, existingNumbe
     }
     setError("");
     onAdd(num, sun, drainage);
-    // Reset
     setCourtNumber("");
     setSun(3);
     setDrainage(3);
@@ -96,10 +103,10 @@ export default function AddCourtModal({ open, onOpenChange, onAdd, existingNumbe
             {error && <p className="text-[10px] text-destructive mt-1">{error}</p>}
           </div>
 
-          <RatingPicker value={sun} onChange={setSun} icon={<Sun className="w-3.5 h-3.5 text-court-amber" />} label="Sun Exposure" />
-          <RatingPicker value={drainage} onChange={setDrainage} icon={<Droplets className="w-3.5 h-3.5 text-primary" />} label="Drainage" />
+          <RatingPicker value={sun} onChange={setSun} icon={<Sun className="w-3.5 h-3.5 text-court-amber" />} label="Sun Exposure" descriptiveLabels={SUN_LABELS} />
+          <RatingPicker value={drainage} onChange={setDrainage} icon={<Droplets className="w-3.5 h-3.5 text-court-green" />} label="Drainage" descriptiveLabels={DRAINAGE_LABELS} />
 
-          <Button onClick={handleSubmit} disabled={isPending || !courtNumber.trim()} className="w-full gap-2">
+          <Button onClick={handleSubmit} disabled={isPending || !courtNumber.trim()} className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="w-4 h-4" />
             {isPending ? "Adding..." : "Add Court"}
           </Button>

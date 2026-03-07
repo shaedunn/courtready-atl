@@ -33,7 +33,7 @@ function DisplayNamePrompt({ onConfirm }: { onConfirm: (name: string) => void })
       <button
         onClick={() => { if (name.trim()) { setDisplayName(name.trim()); onConfirm(name.trim()); } }}
         disabled={!name.trim()}
-        className="w-full bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+        className="w-full bg-accent text-accent-foreground py-2 rounded-lg text-sm font-semibold hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
       >
         Confirm
       </button>
@@ -63,7 +63,6 @@ function StatusVerification({ courtId, reportId }: { courtId: string; reportId: 
       } as any);
       if (error) throw error;
 
-      // If squeegeeing, apply 40% reduction to the current report
       if (status === "squeegee_needed" && reportId) {
         const { data: report } = await supabase.from("reports").select("estimated_dry_minutes, created_at").eq("id", reportId).single();
         if (report) {
@@ -143,7 +142,6 @@ function SqueegeeAction({ report, courtId }: { report: Report; courtId: string }
         .eq("id", report.id);
       if (error) throw error;
 
-      // Log observation
       await supabase.from("observations").insert({
         court_id: courtId,
         report_id: report.id,
@@ -162,7 +160,7 @@ function SqueegeeAction({ report, courtId }: { report: Report; courtId: string }
     <button
       onClick={() => squeegeeMutation.mutate()}
       disabled={squeegeeMutation.isPending}
-      className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 rounded-lg py-2.5 text-sm font-medium hover:bg-primary/20 active:scale-[0.98] transition-all disabled:opacity-50"
+      className="w-full flex items-center justify-center gap-2 bg-court-green/10 text-court-green border border-court-green/20 rounded-lg py-2.5 text-sm font-medium hover:bg-court-green/20 active:scale-[0.98] transition-all disabled:opacity-50"
     >
       <Scissors className="w-4 h-4" />
       {squeegeeMutation.isPending ? "Updating..." : "I am Squeegeeing This Court"}
@@ -186,15 +184,12 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   const squeegeeDry = roundedDry !== null && roundedDry > 0 ? calculateSqueegeeDryTime(roundedDry) : null;
   const saturatedAirEstimate = Math.max(180, roundedDry ?? 180);
 
-  // Find verifier info
   const verifierName = latestObservation?.status === "playable" ? latestObservation.display_name : null;
   const verifierTime = latestObservation?.status === "playable"
     ? new Date(latestObservation.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : null;
 
-  // Rain reset note
   const showRainResetNote = report && latestObservation?.status === "playable" && status !== "verified";
-
   const showActiveStatus = !saturatedAirHardLock && (status === "drying" || status === "wet");
 
   return (
@@ -203,7 +198,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Current Status</span>
         <div className="flex items-center gap-2">
           {report && (
-            <span className="text-[11px] text-muted-foreground font-mono">
+            <span className="text-[11px] text-muted-foreground">
               {new Date(report.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
@@ -214,7 +209,6 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       </div>
 
-      {/* Verified Playable */}
       {status === "verified" && (
         <div className="text-center space-y-1">
           <CheckCircle2 className="w-7 h-7 text-court-green mx-auto" />
@@ -227,7 +221,6 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
-      {/* Hard safety lock: saturated air is unplayable */}
       {saturatedAirHardLock && (
         <div className="text-center space-y-2">
           <AlertTriangle className="w-6 h-6 text-destructive mx-auto" />
@@ -235,25 +228,24 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
           <p className="text-xs text-muted-foreground">Humidity &gt;90%. Natural drying is paused.</p>
           <div className="flex items-center justify-center gap-2">
             <Clock className="w-5 h-5 text-destructive" />
-            <span className="text-xl font-bold font-mono text-destructive">{formatDryTime(saturatedAirEstimate)}</span>
+            <span className="text-xl font-bold text-destructive">{formatDryTime(saturatedAirEstimate)}</span>
           </div>
         </div>
       )}
 
-      {/* Active drying/wet status */}
       {showActiveStatus && roundedDry !== null && roundedDry > 0 && (
         <div className="text-center space-y-3">
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Natural Dry Time</p>
             <div className="flex items-center justify-center gap-2">
               <Clock className="w-5 h-5 text-court-amber" />
-              <span className="text-2xl font-bold font-mono text-court-amber">{formatDryTime(roundedDry)}</span>
+              <span className="text-2xl font-bold text-court-amber">{formatDryTime(roundedDry)}</span>
             </div>
           </div>
           {squeegeeDry !== null && (
             <div className="space-y-1">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Squeegee Assisted</p>
-              <span className="text-lg font-bold font-mono text-primary">{formatDryTime(squeegeeDry)}</span>
+              <span className="text-lg font-bold text-court-green">{formatDryTime(squeegeeDry)}</span>
             </div>
           )}
           <div className="flex gap-3 text-[11px] text-muted-foreground justify-center flex-wrap">
@@ -270,7 +262,6 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
-      {/* Caution: high humidity + saturated air */}
       {!saturatedAirHardLock && status === "caution" && (
         <div className="text-center space-y-1">
           <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
@@ -279,21 +270,18 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
-      {/* Dry / no reports */}
       {!saturatedAirHardLock && status === "playable" && (
         <div className="text-center space-y-1">
-          <Sparkles className="w-6 h-6 text-primary mx-auto" />
-          <p className="text-lg font-bold text-primary text-glow">Courts are Dry</p>
+          <Sparkles className="w-6 h-6 text-court-green mx-auto" />
+          <p className="text-lg font-bold text-court-green text-glow">Courts are Dry</p>
           <p className="text-xs text-muted-foreground">Ready to play</p>
         </div>
       )}
 
-      {/* No reports at all */}
       {!report && status === "playable" && (
         <p className="text-center text-sm text-muted-foreground py-2">No recent reports</p>
       )}
 
-      {/* Rain reset note */}
       {showRainResetNote && (
         <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
           <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
@@ -301,15 +289,12 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
-      {/* Squeegee action */}
       {showActiveStatus && report && <SqueegeeAction report={report} courtId={courtId} />}
 
-      {/* Status Verification */}
       {!saturatedAirHardLock && (showActiveStatus || status === "playable") && report && (
         <StatusVerification courtId={courtId} reportId={report?.id ?? null} />
       )}
 
-      {/* V1 footer */}
       <TooltipProvider delayDuration={100}>
         <div className="flex justify-end">
           <Tooltip>
@@ -351,21 +336,18 @@ function calculatePlayability(
 
   let rainPenalty = 0;
 
-  // Zero-moisture tolerance
   if (window.some(h => h.pop > 0.3)) rainPenalty += 50;
 
-  // Per-hour
   for (const h of window) {
     if (h.pop > 0.3) rainPenalty += Math.round(h.pop * 20);
     if (h.rain_1h > 0) rainPenalty += 15;
     if (h.humidity > 90) rainPenalty += 10;
-    if (h.wind_speed > 10) rainPenalty -= 5; // wind helps drying
+    if (h.wind_speed > 10) rainPenalty -= 5;
   }
 
   rainPenalty = Math.max(0, rainPenalty);
   let score = 100 - Math.round(rainPenalty * dm);
 
-  // Ghost of Rain
   let ghostActive = false;
   if (offset > 0) {
     const priorHours = hourly.slice(0, offset);
@@ -379,7 +361,6 @@ function calculatePlayability(
     }
   }
 
-  // Active report dry time
   if (latestReport) {
     const elapsed = (Date.now() - new Date(latestReport.created_at).getTime()) / 60000;
     const remaining = Math.max(0, latestReport.estimated_dry_minutes - elapsed);
@@ -436,7 +417,6 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
     [score, hourly, windowHours, ghostActive],
   );
 
-  // SVG ring params
   const size = 160;
   const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
@@ -462,24 +442,22 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       </span>
 
       <div className="flex justify-center">
-        <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary/50 rounded-lg p-0.5">
-          <ToggleGroupItem value="0" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">Now</ToggleGroupItem>
-          <ToggleGroupItem value="1" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">+1h</ToggleGroupItem>
-          <ToggleGroupItem value="2" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">+2h</ToggleGroupItem>
-          <ToggleGroupItem value="3" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">+3h</ToggleGroupItem>
+        <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
+          <ToggleGroupItem value="0" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
+          <ToggleGroupItem value="1" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
+          <ToggleGroupItem value="2" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
+          <ToggleGroupItem value="3" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
         </ToggleGroup>
       </div>
 
       <div className="flex justify-center relative">
         <svg width={size} height={size} className="transform -rotate-90">
-          {/* Background ring */}
           <circle
             cx={size / 2} cy={size / 2} r={radius}
             fill="none"
             stroke="hsl(var(--secondary))"
             strokeWidth={strokeWidth}
           />
-          {/* Foreground ring */}
           <circle
             cx={size / 2} cy={size / 2} r={radius}
             fill="none"
@@ -491,9 +469,8 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
             style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.3s ease" }}
           />
         </svg>
-        {/* Centered percentage */}
         <div className="absolute flex items-center justify-center" style={{ width: size, height: size }}>
-          <span className={`font-mono font-bold text-3xl ${textColor}`}>{score}%</span>
+          <span className={`font-bold text-3xl ${textColor}`}>{score}%</span>
         </div>
       </div>
 
@@ -580,7 +557,7 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
           onKeyDown={(e) => e.key === "Enter" && submitLog.mutate()}
           className="flex-1 bg-secondary text-foreground rounded-lg px-3 py-2 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50" />
         <button onClick={() => submitLog.mutate()}
-          className="p-2 bg-primary text-primary-foreground rounded-lg hover:brightness-110 active:scale-95 transition-all">
+          className="p-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 active:scale-95 transition-all">
           <Send className="w-4 h-4" />
         </button>
       </div>
@@ -592,7 +569,7 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
             <div key={entry.id} className="text-sm border-l-2 border-border pl-3 py-1">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-medium text-xs">{entry.author}</span>
-                <span className="text-[10px] text-muted-foreground font-mono">
+                <span className="text-[10px] text-muted-foreground">
                   {new Date(entry.created_at).toLocaleDateString()} {new Date(entry.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
@@ -614,25 +591,15 @@ export default function CourtDetail() {
   const [showTour, setShowTour] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  // Show tour after data loads
-  useEffect(() => {
-    if (shouldShowTour() && !isLoading) {
-      const t = setTimeout(() => setShowTour(true), 800);
-      return () => clearTimeout(t);
-    }
-  }, []);
-
   const { data: subCourts } = useQuery<SubCourtRow[]>({
     queryKey: ["sub-courts", id],
     queryFn: async () => {
       try {
-        console.log("Fetching for Facility:", id);
         const { data, error } = await (supabase.from("sub_courts") as any)
           .select("*")
           .eq("facility_id", id!)
           .order("court_number");
         if (error) throw error;
-        console.log("Raw Data Received:", data ?? []);
         return (data ?? []) as SubCourtRow[];
       } catch (error) {
         console.error("[CourtDetail] Failed to fetch sub_courts:", error);
@@ -650,7 +617,6 @@ export default function CourtDetail() {
         sun_exposure: 3,
         drainage: 3,
       }));
-
       const { error } = await (supabase.from("sub_courts") as any).insert(rows);
       if (error) throw error;
     },
@@ -668,6 +634,14 @@ export default function CourtDetail() {
     },
     enabled: !!id,
   });
+
+  // Show tour after data loads
+  useEffect(() => {
+    if (shouldShowTour() && !isLoading) {
+      const t = setTimeout(() => setShowTour(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, [isLoading]);
 
   const { data: latestReport = null } = useQuery({
     queryKey: ["latest-report", id],
@@ -705,7 +679,6 @@ export default function CourtDetail() {
     refetchInterval: 30000,
   });
 
-  // Rain reset guardrail: check weather for new precipitation
   const { data: weatherData } = useQuery({
     queryKey: ["weather-check", court?.latitude, court?.longitude],
     queryFn: async () => {
@@ -721,19 +694,16 @@ export default function CourtDetail() {
     staleTime: 240000,
   });
 
-  // Determine if rain reset applies: latest obs is playable but weather shows rain
   const rainResetActive = latestObservation?.status === "playable" && weatherData?.rain_1h > 0;
-
-  // Override observation if rain detected after playable verification
   const effectiveObservation = rainResetActive ? null : latestObservation;
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4">
+        <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4">
           <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
-            <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-secondary transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+            <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent/80 transition-colors">
+              <ArrowLeft className="w-5 h-5 text-accent-foreground" />
             </button>
             <div className="flex-1 space-y-1">
               <Skeleton className="h-4 w-40" />
@@ -758,26 +728,25 @@ export default function CourtDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4">
+      <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4">
         <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-secondary transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+          <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent/80 transition-colors">
+            <ArrowLeft className="w-5 h-5 text-accent-foreground" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold text-sm truncate">{court.name}</h1>
+            <h1 className="font-bold text-sm truncate text-accent-foreground">{court.name}</h1>
             <div className="flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              <p className="text-xs text-muted-foreground truncate">{court.location}</p>
+              <MapPin className="w-3 h-3 text-accent-foreground/60 flex-shrink-0" />
+              <p className="text-xs text-accent-foreground/70 truncate">{court.location}</p>
             </div>
           </div>
-          <button onClick={() => navigate(`/court/${id}/admin`)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" aria-label="Facility Setup">
-            <Settings className="w-5 h-5 text-muted-foreground" />
+          <button onClick={() => navigate(`/court/${id}/admin`)} className="p-1.5 rounded-lg hover:bg-accent/80 transition-colors" aria-label="Facility Setup">
+            <Settings className="w-5 h-5 text-accent-foreground/70" />
           </button>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* Moss / Hazard Alerts */}
         {subCourts && subCourts.filter(sc => sc.hazard_description).map(sc => (
           <div key={sc.id} className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
             <ShieldAlert className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
@@ -796,7 +765,6 @@ export default function CourtDetail() {
           <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
 
-        {/* Rain reset banner */}
         {rainResetActive && (
           <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
             <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
@@ -808,7 +776,7 @@ export default function CourtDetail() {
           <button
             onClick={() => forceCreateSubCourtsMutation.mutate()}
             disabled={forceCreateSubCourtsMutation.isPending}
-            className="w-full bg-primary text-primary-foreground border border-primary/40 font-extrabold py-4 rounded-xl text-sm tracking-wide shadow-lg shadow-primary/35 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60"
+            className="w-full bg-accent text-accent-foreground border border-accent/40 font-extrabold py-4 rounded-xl text-sm tracking-wide shadow-lg hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-60"
           >
             {forceCreateSubCourtsMutation.isPending
               ? "Creating Initial Courts..."
@@ -818,7 +786,9 @@ export default function CourtDetail() {
 
         {!showForm && (
           <button onClick={() => setShowForm(true)}
-            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-lg text-sm tracking-wide hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+            className="w-full font-semibold py-3 rounded-lg text-sm tracking-wide hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#002366", color: "#DFFF00" }}
+          >
             <CloudRain className="w-4 h-4" />
             Captain's Report
           </button>
@@ -837,7 +807,6 @@ export default function CourtDetail() {
           />
         )}
 
-        {/* Inline Sub-Court Editor */}
         <div data-tour="sub-court-editor">
           <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
         </div>

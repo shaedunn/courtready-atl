@@ -8,15 +8,23 @@ import { Badge } from "@/components/ui/badge";
 import AddCourtModal from "@/components/AddCourtModal";
 import type { SubCourtRow as SubCourt } from "@/types/supabase";
 
-const RATING_LABELS: Record<number, string> = {
-  1: "Poor",
-  2: "Below Avg",
+const SUN_LABELS: Record<number, string> = {
+  1: "Heavy Shade",
+  2: "Mostly Shade",
+  3: "Partial Sun",
+  4: "Mostly Sun",
+  5: "Full Sun",
+};
+
+const DRAINAGE_LABELS: Record<number, string> = {
+  1: "Poor / Pools",
+  2: "Slow Drain",
   3: "Average",
   4: "Good",
   5: "Excellent",
 };
 
-function RatingSelector({ value, onChange, icon, label }: { value: number; onChange: (v: number) => void; icon: React.ReactNode; label: string }) {
+function RatingSelector({ value, onChange, icon, label, descriptiveLabels }: { value: number; onChange: (v: number) => void; icon: React.ReactNode; label: string; descriptiveLabels: Record<number, string> }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
@@ -30,17 +38,28 @@ function RatingSelector({ value, onChange, icon, label }: { value: number; onCha
             onClick={() => onChange(r)}
             className={`flex-1 py-1.5 rounded text-xs font-medium transition-all ${
               value === r
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground border border-border hover:border-primary/30"
+                ? "bg-accent text-accent-foreground"
+                : "bg-secondary text-muted-foreground border border-border hover:border-navy/30"
             }`}
           >
             {r}
           </button>
         ))}
       </div>
-      <p className="text-[10px] text-muted-foreground text-center">{RATING_LABELS[value]}</p>
+      <p className="text-[10px] text-muted-foreground text-center">{descriptiveLabels[value]}</p>
     </div>
   );
+}
+
+interface SubCourtRow {
+  id: string;
+  facility_id: string;
+  court_number: number;
+  sun_exposure: number;
+  drainage: number;
+  permanent_note: string | null;
+  hazard_description: string | null;
+  created_at: string;
 }
 
 export default function FacilityAdmin() {
@@ -62,15 +81,11 @@ export default function FacilityAdmin() {
     queryKey: ["sub-courts", id],
     queryFn: async () => {
       try {
-        console.log("Fetching for Facility:", id);
-
         const { data, error } = await (supabase.from("sub_courts") as any)
           .select("*")
           .eq("facility_id", id!)
           .order("court_number");
-
         if (error) throw error;
-        console.log("Raw Data Received:", data ?? []);
         return (data ?? []) as SubCourt[];
       } catch (error) {
         console.error("[FacilityAdmin] Failed to fetch sub_courts:", error);
@@ -80,7 +95,6 @@ export default function FacilityAdmin() {
     enabled: !!id,
   });
 
-  // Local editable state
   const [editState, setEditState] = useState<Record<number, { sun: number; drain: number; note: string }>>({});
   const [selectedForBulk, setSelectedForBulk] = useState<Set<number>>(new Set());
   const [bulkSun, setBulkSun] = useState(3);
@@ -88,11 +102,7 @@ export default function FacilityAdmin() {
   const [newCourtNumbers, setNewCourtNumbers] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Sync edit state when subCourts load
   useEffect(() => {
-    console.log("Fetching for Facility:", id);
-    console.log("Raw Data Received:", subCourts);
-
     if (subCourts.length > 0) {
       const state: Record<number, { sun: number; drain: number; note: string }> = {};
       for (const sc of subCourts) {
@@ -102,7 +112,6 @@ export default function FacilityAdmin() {
     }
   }, [id, subCourts]);
 
-  // Add courts mutation
   const addCourtsMutation = useMutation({
     mutationFn: async (numbers: number[]) => {
       const inserts = numbers.map((n) => ({
@@ -111,7 +120,6 @@ export default function FacilityAdmin() {
         sun_exposure: 3,
         drainage: 3,
       }));
-
       const { error } = await (supabase.from("sub_courts") as any).insert(inserts);
       if (error) throw error;
     },
@@ -121,7 +129,6 @@ export default function FacilityAdmin() {
     },
   });
 
-  // Add single court with ratings via modal
   const addSingleCourtMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drainage }: { courtNumber: number; sun: number; drainage: number }) => {
       const { error } = await (supabase.from("sub_courts") as any).insert({
@@ -138,14 +145,12 @@ export default function FacilityAdmin() {
     },
   });
 
-  // Save individual court
   const saveMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drain, note }: { courtNumber: number; sun: number; drain: number; note: string }) => {
       const { error } = await (supabase.from("sub_courts") as any)
         .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null })
         .eq("facility_id", id!)
         .eq("court_number", courtNumber);
-
       if (error) throw error;
     },
     onSuccess: () => {
@@ -153,7 +158,6 @@ export default function FacilityAdmin() {
     },
   });
 
-  // Bulk update mutation
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
       const numbers = Array.from(selectedForBulk);
@@ -162,7 +166,6 @@ export default function FacilityAdmin() {
           .update({ sun_exposure: bulkSun, drainage: bulkDrain })
           .eq("facility_id", id!)
           .eq("court_number", n);
-
         if (error) throw error;
       }
     },
@@ -203,14 +206,14 @@ export default function FacilityAdmin() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4">
+      <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4">
         <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
-          <button onClick={() => navigate(`/court/${id}`)} className="p-1.5 -ml-1.5 rounded-lg hover:bg-secondary transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+          <button onClick={() => navigate(`/court/${id}`)} className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent/80 transition-colors">
+            <ArrowLeft className="w-5 h-5 text-accent-foreground" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold text-sm truncate">{court?.name || "Loading..."}</h1>
-            <p className="text-xs text-muted-foreground">Facility Setup</p>
+            <h1 className="font-bold text-sm truncate text-accent-foreground">{court?.name || "Loading..."}</h1>
+            <p className="text-xs text-accent-foreground/70">Facility Setup</p>
           </div>
         </div>
       </header>
@@ -223,7 +226,6 @@ export default function FacilityAdmin() {
           </div>
         ) : (
           <>
-            {/* Add Court Modal */}
             <AddCourtModal
               open={showAddModal}
               onOpenChange={setShowAddModal}
@@ -238,7 +240,7 @@ export default function FacilityAdmin() {
                 <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Add Court Numbers</h3>
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-navy hover:text-navy/80 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Court
                 </button>
@@ -254,13 +256,13 @@ export default function FacilityAdmin() {
                 <button
                   onClick={handleAddCourts}
                   disabled={addCourtsMutation.isPending || !newCourtNumbers.trim()}
-                  className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 bg-accent text-accent-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   Bulk
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground">Use the <button onClick={() => setShowAddModal(true)} className="text-primary font-medium underline">+ Add Court</button> button for individual courts with ratings, or bulk-add with comma-separated numbers above.</p>
+              <p className="text-[10px] text-muted-foreground">Use the <button onClick={() => setShowAddModal(true)} className="text-navy font-medium underline">+ Add Court</button> button for individual courts with ratings, or bulk-add above.</p>
             </div>
 
             {/* Bulk Update */}
@@ -268,7 +270,7 @@ export default function FacilityAdmin() {
               <div className="bg-card rounded-lg p-4 border border-border card-glow space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Bulk Update</h3>
-                  <button onClick={selectAll} className="text-[10px] text-primary font-medium hover:underline">
+                  <button onClick={selectAll} className="text-[10px] text-navy font-medium hover:underline">
                     {selectedForBulk.size === subCourts.length ? "Deselect All" : "Select All"}
                   </button>
                 </div>
@@ -279,8 +281,8 @@ export default function FacilityAdmin() {
                       onClick={() => toggleBulkSelect(sc.court_number)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                         selectedForBulk.has(sc.court_number)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+                          ? "bg-accent text-accent-foreground border-accent"
+                          : "bg-secondary text-muted-foreground border-border hover:border-navy/30"
                       }`}
                     >
                       Court {sc.court_number}
@@ -289,12 +291,12 @@ export default function FacilityAdmin() {
                 </div>
                 {selectedForBulk.size > 0 && (
                   <div className="space-y-3 pt-2 border-t border-border">
-                    <RatingSelector value={bulkSun} onChange={setBulkSun} icon={<Sun className="w-3.5 h-3.5 text-court-amber" />} label="Sun Exposure" />
-                    <RatingSelector value={bulkDrain} onChange={setBulkDrain} icon={<Droplets className="w-3.5 h-3.5 text-primary" />} label="Drainage" />
+                    <RatingSelector value={bulkSun} onChange={setBulkSun} icon={<Sun className="w-3.5 h-3.5 text-court-amber" />} label="Sun Exposure" descriptiveLabels={SUN_LABELS} />
+                    <RatingSelector value={bulkDrain} onChange={setBulkDrain} icon={<Droplets className="w-3.5 h-3.5 text-court-green" />} label="Drainage" descriptiveLabels={DRAINAGE_LABELS} />
                     <button
                       onClick={() => bulkUpdateMutation.mutate()}
                       disabled={bulkUpdateMutation.isPending}
-                      className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+                      className="w-full bg-accent text-accent-foreground py-2.5 rounded-lg text-sm font-semibold hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
                     >
                       {bulkUpdateMutation.isPending ? "Updating..." : `Update ${selectedForBulk.size} Court${selectedForBulk.size > 1 ? "s" : ""}`}
                     </button>
@@ -327,12 +329,14 @@ export default function FacilityAdmin() {
                     onChange={(v) => setEditState((prev) => ({ ...prev, [sc.court_number]: { ...state, sun: v } }))}
                     icon={<Sun className="w-3.5 h-3.5 text-court-amber" />}
                     label="Sun Exposure"
+                    descriptiveLabels={SUN_LABELS}
                   />
                   <RatingSelector
                     value={state.drain}
                     onChange={(v) => setEditState((prev) => ({ ...prev, [sc.court_number]: { ...state, drain: v } }))}
-                    icon={<Droplets className="w-3.5 h-3.5 text-primary" />}
+                    icon={<Droplets className="w-3.5 h-3.5 text-court-green" />}
                     label="Drainage"
+                    descriptiveLabels={DRAINAGE_LABELS}
                   />
 
                   <div className="space-y-1.5">
@@ -353,7 +357,7 @@ export default function FacilityAdmin() {
                     <button
                       onClick={() => saveMutation.mutate({ courtNumber: sc.court_number, sun: state.sun, drain: state.drain, note: state.note })}
                       disabled={saveMutation.isPending}
-                      className="w-full flex items-center justify-center gap-1.5 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-1.5 bg-accent text-accent-foreground py-2 rounded-lg text-sm font-medium hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
                     >
                       <Save className="w-4 h-4" />
                       {saveMutation.isPending ? "Saving..." : "Save Changes"}
@@ -370,7 +374,7 @@ export default function FacilityAdmin() {
                 <button
                   onClick={() => addCourtsMutation.mutate([1, 2, 3, 4])}
                   disabled={addCourtsMutation.isPending}
-                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 bg-accent text-accent-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   {addCourtsMutation.isPending ? "Initializing..." : "Initialize 4 Courts for this Facility"}
