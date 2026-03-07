@@ -302,7 +302,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
       {showActiveStatus && report && <SqueegeeAction report={report} courtId={courtId} />}
 
       {/* Status Verification */}
-      {(showActiveStatus || status === "playable") && report && (
+      {!saturatedAirHardLock && (showActiveStatus || status === "playable") && report && (
         <StatusVerification courtId={courtId} reportId={report?.id ?? null} />
       )}
 
