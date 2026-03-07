@@ -1,6 +1,9 @@
 // Re-export the Lovable Cloud Supabase client for all DB operations.
 import { supabase } from "@/integrations/supabase/client";
 
+// Runtime verification — confirms the build has the correct backend URL
+console.info("CourtReady backend:", import.meta.env.VITE_SUPABASE_URL);
+
 export { supabase };
 
 // Sub-court row type aligned to facility_id schema

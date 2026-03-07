@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 
 // ── PWA Cache Bust: force-clear stale service worker + cache ──
-const CACHE_BUST_KEY = "courtready-cache-busted-v3";
+const CACHE_BUST_KEY = "courtready-cache-busted-v4";
 if (!localStorage.getItem(CACHE_BUST_KEY)) {
   localStorage.setItem(CACHE_BUST_KEY, "1");
 
