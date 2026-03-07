@@ -138,12 +138,13 @@ export function formatDryTime(minutes: number): string {
  * HUMIDITY FLOOR: If humidity > 90% and a rain report exists with remaining dry time,
  * status CANNOT be "playable" — stays "drying" with minimum 120 min.
  */
-export type CourtStatus = "playable" | "drying" | "wet" | "verified";
+export type CourtStatus = "playable" | "drying" | "wet" | "verified" | "caution";
 
 export function getCourtStatus(
   report: { created_at: string; estimated_dry_minutes: number; rainfall: number } | null,
   latestObservation?: { status: string; created_at: string } | null,
-  currentHumidity?: number | null
+  currentHumidity?: number | null,
+  recentRain?: boolean
 ): CourtStatus {
   const highHumidity = (currentHumidity ?? 0) > 90;
 
@@ -153,6 +154,9 @@ export function getCourtStatus(
     const obsAge = (Date.now() - new Date(latestObservation.created_at).getTime()) / 60000;
     if (obsAge <= 45) return "verified";
   }
+
+  // High humidity + recent rain but no report → caution (not "dry")
+  if (!report && highHumidity && recentRain) return "caution";
 
   if (!report) return "playable";
 
@@ -185,6 +189,7 @@ export function getCourtStatus(
 export const STATUS_CONFIG: Record<CourtStatus, { color: string; label: string }> = {
   playable: { color: "bg-court-green", label: "Playable" },
   verified: { color: "bg-court-green", label: "Verified Playable" },
+  caution: { color: "bg-court-amber", label: "Caution" },
   drying: { color: "bg-court-amber", label: "Drying" },
   wet: { color: "bg-court-red", label: "Wet" },
 };

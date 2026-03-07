@@ -167,8 +167,8 @@ function SqueegeeAction({ report, courtId }: { report: Report; courtId: string }
 }
 
 /* ─── Status Card ─── */
-function StatusCard({ report, courtId, latestObservation, currentHumidity }: { report: Report | null; courtId: string; latestObservation: Observation | null; currentHumidity?: number | null }) {
-  const status = getCourtStatus(report, latestObservation, currentHumidity);
+function StatusCard({ report, courtId, latestObservation, currentHumidity, recentRain }: { report: Report | null; courtId: string; latestObservation: Observation | null; currentHumidity?: number | null; recentRain?: boolean }) {
+  const status = getCourtStatus(report, latestObservation, currentHumidity, recentRain);
   const config = STATUS_CONFIG[status];
   const highHumidity = (currentHumidity ?? 0) > 90;
 
@@ -246,6 +246,15 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity }: { r
               <span>Humidity &gt;90% — saturated air, 3× dry time (min 120 min)</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Caution: high humidity */}
+      {status === "caution" && (
+        <div className="text-center space-y-1">
+          <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
+          <p className="text-lg font-bold text-court-amber">High Humidity – Exercise Caution</p>
+          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent rain. Courts may be slow to dry.</p>
         </div>
       )}
 
@@ -516,7 +525,7 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} />
+        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={weatherData?.rain_1h > 0} />
 
         {/* Rain reset banner */}
         {rainResetActive && (
