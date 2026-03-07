@@ -117,18 +117,11 @@ export default function FacilityAdmin() {
   // Save individual court
   const saveMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drain, note }: { courtNumber: number; sun: number; drain: number; note: string }) => {
-      const facilityUpdate = await (supabase.from("sub_courts") as any)
+      const { error } = await (supabase.from("sub_courts") as any)
         .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null })
         .eq("facility_id", id!)
         .eq("court_number", courtNumber);
 
-      if (!facilityUpdate.error) return;
-
-      const { error } = await supabase
-        .from("sub_courts")
-        .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null } as any)
-        .eq("court_id", id!)
-        .eq("court_number", courtNumber);
       if (error) throw error;
     },
     onSuccess: () => {
