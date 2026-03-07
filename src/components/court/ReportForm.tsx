@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle, Info, Leaf } from "lucide-react";
-import { supabase, SOVEREIGN_ANON, type SovereignCourt } from "@/lib/supabase";
+import { Camera, Thermometer, Droplets, Wind, AlertTriangle, Info, Leaf } from "lucide-react";
+import { supabase, SOVEREIGN_ANON, type SovereignCourt, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   calculateDryTime,
+  calculateSqueegeeDryTime,
   formatDryTime,
   HINDRANCE_OPTIONS,
   RAINFALL_CATEGORIES,
@@ -29,15 +30,14 @@ export default function ReportForm({
   court: SovereignCourt;
   onSubmitted: () => void;
 }) {
-  // Rainfall categorical picker
   const [rainfallCategory, setRainfallCategory] = useState<RainfallCategory | null>(null);
   const [customRainfall, setCustomRainfall] = useState("");
-
   const [squeegee, setSqueegee] = useState<0 | 1 | 2>(0);
   const [hindrances, setHindrances] = useState<Hindrance[]>([]);
   const [debrisOnCourt, setDebrisOnCourt] = useState(false);
   const [observations, setObservations] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [displayName, setLocalDisplayName] = useState(getDisplayName());
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -78,7 +78,6 @@ export default function ReportForm({
       .finally(() => setWeatherLoading(false));
   }, [court.lat, court.lon]);
 
-  // Derive effective rainfall from category
   const getEffectiveRainfall = (): number | null => {
     if (!rainfallCategory) return null;
     if (rainfallCategory === "custom") {
@@ -89,13 +88,7 @@ export default function ReportForm({
     return cat?.amount ?? null;
   };
 
-  const getEffectiveWeather = (): {
-    temp: number;
-    humidity: number;
-    wind_speed: number;
-    description: string;
-    isManual: boolean;
-  } | null => {
+  const getEffectiveWeather = () => {
     if (weather) {
       return { temp: weather.temp, humidity: weather.humidity, wind_speed: weather.wind_speed, description: weather.description ?? "Live", isManual: false };
     }
@@ -114,15 +107,18 @@ export default function ReportForm({
   const effectiveRainfall = getEffectiveRainfall();
   const manualReady = isManualEntry && effectiveWeather !== null;
 
-  // Sovereign court values — debris applies 20% drainage penalty
-  const sunExposure = court.sun_exposure_rating;
-  const effectiveDrainage = debrisOnCourt ? court.drainage_rating * 0.8 : court.drainage_rating;
+  // 1-5 scale values from DB; debris applies 20% drainage penalty
+  const sunExposure = court.sun_exposure;
+  const effectiveDrainage = debrisOnCourt ? court.drainage * 0.8 : court.drainage;
 
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (effectiveRainfall === null || effectiveRainfall < 0) throw new Error("Invalid rainfall");
       const ew = getEffectiveWeather();
       if (!ew) throw new Error("Weather data required");
+
+      // Save display name
+      if (displayName.trim()) setDisplayName(displayName.trim());
 
       const dryTime = calculateDryTime(
         effectiveRainfall, squeegee, ew.temp, ew.humidity, ew.wind_speed,
@@ -132,6 +128,7 @@ export default function ReportForm({
       const obs = [
         ew.isManual ? "[Manual Entry]" : "",
         debrisOnCourt ? "[Debris on Court]" : "",
+        displayName.trim() ? `[Reporter: ${displayName.trim()}]` : "",
         observations.trim(),
       ].filter(Boolean).join(" ") || null;
 
@@ -175,12 +172,14 @@ export default function ReportForm({
     });
   };
 
-  const previewDryTime = (() => {
+  const previewNaturalDryTime = (() => {
     const rain = effectiveRainfall;
     const ew = getEffectiveWeather();
     if (rain === null || rain <= 0 || !ew) return null;
-    return calculateDryTime(rain, squeegee, ew.temp, ew.humidity, ew.wind_speed, sunExposure, effectiveDrainage, hindrances);
+    return calculateDryTime(rain, 0, ew.temp, ew.humidity, ew.wind_speed, sunExposure, effectiveDrainage, hindrances);
   })();
+
+  const previewSqueegeeDryTime = previewNaturalDryTime !== null ? calculateSqueegeeDryTime(previewNaturalDryTime) : null;
 
   const canSubmit = !submitMutation.isPending && (!!weather || manualReady) && effectiveRainfall !== null && effectiveRainfall > 0;
 
@@ -196,6 +195,18 @@ export default function ReportForm({
   return (
     <div className="bg-card rounded-lg p-5 border border-border space-y-4 card-glow">
       <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Captain's Report</h3>
+
+      {/* Display Name */}
+      <div>
+        <label className="text-xs text-muted-foreground block mb-1.5">Your Display Name</label>
+        <input
+          type="text"
+          value={displayName}
+          onChange={(e) => setLocalDisplayName(e.target.value)}
+          placeholder="e.g. Captain Dunn"
+          className={inputClasses}
+        />
+      </div>
 
       {/* Weather badges */}
       <TooltipProvider delayDuration={100}>
@@ -343,11 +354,20 @@ export default function ReportForm({
         {photo && <img src={photo} alt="Court photo" className="mt-2 rounded-lg w-full h-32 object-cover" />}
       </div>
 
-      {/* Dry time preview */}
-      {previewDryTime !== null && (
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <span className="text-xs text-muted-foreground">Estimated dry time: </span>
-          <span className="text-sm font-bold font-mono text-primary">{formatDryTime(previewDryTime)}</span>
+      {/* Dual dry time preview */}
+      {previewNaturalDryTime !== null && previewNaturalDryTime > 0 && (
+        <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Natural Dry Time:</span>
+            <span className="text-sm font-bold font-mono text-court-amber">{formatDryTime(previewNaturalDryTime)}</span>
+          </div>
+          {previewSqueegeeDryTime !== null && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Squeegee Assisted:</span>
+              <span className="text-sm font-bold font-mono text-primary">{formatDryTime(previewSqueegeeDryTime)}</span>
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground text-right italic">V1 Predictor Model</p>
         </div>
       )}
 

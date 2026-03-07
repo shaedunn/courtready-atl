@@ -20,6 +20,7 @@ export const SOVEREIGN_PROJECT_ID = "racdnnitrapgqozxctsk";
 export const SOVEREIGN_ANON = SOVEREIGN_ANON_KEY;
 
 // Sovereign court type — matches the actual schema on racdnnitrapgqozxctsk
+// DB columns: sun_exposure (1-5), drainage (1-5)
 export type SovereignCourt = {
   id: string;
   created_at: string;
@@ -30,6 +31,27 @@ export type SovereignCourt = {
   court_count: number;
   lat: number | null;
   lon: number | null;
-  sun_exposure_rating: number;
-  drainage_rating: number;
+  sun_exposure: number;   // 1-5 scale
+  drainage: number;       // 1-5 scale
 };
+
+// Observation type for status verifications
+export type Observation = {
+  id: string;
+  court_id: string;
+  report_id: string | null;
+  status: "still_wet" | "squeegee_needed" | "playable";
+  display_name: string;
+  created_at: string;
+};
+
+// localStorage key for user display name
+const DISPLAY_NAME_KEY = "courtready-display-name";
+
+export function getDisplayName(): string {
+  return localStorage.getItem(DISPLAY_NAME_KEY) || "";
+}
+
+export function setDisplayName(name: string) {
+  localStorage.setItem(DISPLAY_NAME_KEY, name.trim());
+}

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Search, Droplets, MapPin, Pin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase, type SovereignCourt } from "@/lib/supabase";
+import { supabase, type SovereignCourt, type Observation } from "@/lib/supabase";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,17 +43,19 @@ function CourtCardSkeleton() {
 function CourtCard({
   court,
   report,
+  observation,
   isPinned,
   onTogglePin,
   onNavigate,
 }: {
   court: SovereignCourt;
   report: Report | null;
+  observation: Observation | null;
   isPinned: boolean;
   onTogglePin: (id: string) => void;
   onNavigate: (id: string) => void;
 }) {
-  const status = getCourtStatus(report);
+  const status = getCourtStatus(report, observation);
   const config = STATUS_CONFIG[status];
 
   return (
@@ -130,6 +132,24 @@ export default function Dashboard() {
     placeholderData: keepPreviousData,
   });
 
+  const { data: latestObservations = {} } = useQuery({
+    queryKey: ["latest-observations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("observations")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, Observation> = {};
+      for (const o of data as unknown as Observation[]) {
+        if (!map[o.court_id]) map[o.court_id] = o;
+      }
+      return map;
+    },
+    refetchInterval: 30000,
+    placeholderData: keepPreviousData,
+  });
+
   const filtered = courts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -178,7 +198,7 @@ export default function Dashboard() {
               <>
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-1">Pinned</p>
                 {pinnedCourts.map((court) => (
-                  <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} isPinned onTogglePin={togglePin} onNavigate={handleNavigate} />
+                  <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} observation={latestObservations[court.id] || null} isPinned onTogglePin={togglePin} onNavigate={handleNavigate} />
                 ))}
                 {unpinnedCourts.length > 0 && (
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-3">All Courts</p>
@@ -186,7 +206,7 @@ export default function Dashboard() {
               </>
             )}
             {unpinnedCourts.map((court) => (
-              <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} isPinned={false} onTogglePin={togglePin} onNavigate={handleNavigate} />
+              <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} observation={latestObservations[court.id] || null} isPinned={false} onTogglePin={togglePin} onNavigate={handleNavigate} />
             ))}
           </>
         )}

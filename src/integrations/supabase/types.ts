@@ -88,6 +88,48 @@ export type Database = {
         }
         Relationships: []
       }
+      observations: {
+        Row: {
+          court_id: string
+          created_at: string
+          display_name: string
+          id: string
+          report_id: string | null
+          status: string
+        }
+        Insert: {
+          court_id: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          report_id?: string | null
+          status: string
+        }
+        Update: {
+          court_id?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          report_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observations_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observations_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           abstract_observations: string | null
