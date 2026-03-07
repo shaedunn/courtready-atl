@@ -249,12 +249,12 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
-      {/* Caution: high humidity */}
+      {/* Caution: high humidity + saturated air */}
       {status === "caution" && (
         <div className="text-center space-y-1">
           <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
-          <p className="text-lg font-bold text-court-amber">High Humidity – Exercise Caution</p>
-          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent rain. Courts may be slow to dry.</p>
+          <p className="text-lg font-bold text-court-amber">High Humidity – Saturated Air</p>
+          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent moisture. Estimated minimum dry time: <span className="font-semibold">3 hours</span>.</p>
         </div>
       )}
 

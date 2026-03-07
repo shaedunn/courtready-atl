@@ -155,23 +155,27 @@ export function getCourtStatus(
     if (obsAge <= 45) return "verified";
   }
 
-  // High humidity + recent rain but no report → caution (not "dry")
-  if (!report && highHumidity && recentRain) return "caution";
+  // Report within last 8 hours counts as "recent moisture"
+  const reportAge = report ? (Date.now() - new Date(report.created_at).getTime()) / 60000 : Infinity;
+  const recentMoisture = recentRain || (report !== null && reportAge < 480 && report.rainfall > 0);
+
+  // HARD RULE: humidity > 90% + any recent moisture = CANNOT be "Dry"
+  if (highHumidity && recentMoisture) {
+    // If we have a report, check severity
+    if (report && reportAge < 480) {
+      if (reportAge < 60 && report.rainfall > 0.25) return "wet";
+      return "drying";
+    }
+    // No report but recent rain detected by weather API
+    return "caution";
+  }
 
   if (!report) return "playable";
 
-  const ageMinutes = (Date.now() - new Date(report.created_at).getTime()) / 60000;
+  const ageMinutes = reportAge;
 
-  // No report in 12 hours → playable (only if not high humidity with meaningful rain)
-  if (ageMinutes > 720) {
-    if (highHumidity && report.rainfall > 0.1) return "caution";
-    return "playable";
-  }
-
-  // Humidity Floor: if > 90% and rain exists, CANNOT be dry — stays drying
-  if (highHumidity && report.rainfall > 0) {
-    return ageMinutes < 60 && report.rainfall > 0.25 ? "wet" : "drying";
-  }
+  // No report in 12 hours → playable
+  if (ageMinutes > 720) return "playable";
 
   // Report < 60 min old with heavy rain → wet
   if (ageMinutes < 60 && report.rainfall > 0.25) return "wet";
