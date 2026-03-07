@@ -104,6 +104,9 @@ export default function FacilityAdmin() {
 
   // Sync edit state when subCourts load
   useEffect(() => {
+    console.log("Fetching for Facility:", id);
+    console.log("Raw Data Received:", subCourts);
+
     if (subCourts.length > 0) {
       const state: Record<number, { sun: number; drain: number; note: string }> = {};
       for (const sc of subCourts) {
@@ -111,7 +114,7 @@ export default function FacilityAdmin() {
       }
       setEditState(state);
     }
-  }, [subCourts]);
+  }, [id, subCourts]);
 
   // Add courts mutation
   const addCourtsMutation = useMutation({
@@ -144,6 +147,13 @@ export default function FacilityAdmin() {
   // Save individual court
   const saveMutation = useMutation({
     mutationFn: async ({ courtNumber, sun, drain, note }: { courtNumber: number; sun: number; drain: number; note: string }) => {
+      const facilityUpdate = await (supabase.from("sub_courts") as any)
+        .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null })
+        .eq("facility_id", id!)
+        .eq("court_number", courtNumber);
+
+      if (!facilityUpdate.error) return;
+
       const { error } = await supabase
         .from("sub_courts")
         .update({ sun_exposure: sun, drainage: drain, permanent_note: note || null } as any)
@@ -161,6 +171,13 @@ export default function FacilityAdmin() {
     mutationFn: async () => {
       const numbers = Array.from(selectedForBulk);
       for (const n of numbers) {
+        const facilityUpdate = await (supabase.from("sub_courts") as any)
+          .update({ sun_exposure: bulkSun, drainage: bulkDrain })
+          .eq("facility_id", id!)
+          .eq("court_number", n);
+
+        if (!facilityUpdate.error) continue;
+
         const { error } = await supabase
           .from("sub_courts")
           .update({ sun_exposure: bulkSun, drainage: bulkDrain } as any)

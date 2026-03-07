@@ -73,6 +73,14 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
 
   const addCourtMutation = useMutation({
     mutationFn: async (courtNumber: number) => {
+      const facilityInsert = await (supabase.from("sub_courts") as any).insert({
+        facility_id: courtId,
+        court_number: courtNumber,
+        sun_exposure: 3,
+        drainage: 3,
+      });
+      if (!facilityInsert.error) return;
+
       const { error } = await supabase.from("sub_courts").insert({
         court_id: courtId,
         court_number: courtNumber,
