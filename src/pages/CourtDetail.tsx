@@ -326,7 +326,195 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   );
 }
 
-function StatusCardSkeleton() {
+/* ─── Playability Forecast ─── */
+type HourlyEntry = { dt: number; temp: number; humidity: number; wind_speed: number; pop: number; rain_1h: number; description?: string };
+
+type WeatherWithHourly = {
+  temp: number; humidity: number; wind_speed: number; rain_1h?: number;
+  description?: string; icon?: string;
+  hourly?: HourlyEntry[];
+};
+
+function calculatePlayability(
+  hourly: HourlyEntry[],
+  offset: number,
+  courtDrainage: number,
+  latestReport: Report | null,
+): { score: number; ghostActive: boolean } {
+  const window = hourly.slice(offset, offset + 3);
+  if (window.length === 0) return { score: 100, ghostActive: false };
+
+  const drainageMap: Record<number, number> = { 1: 1.5, 2: 1.2, 3: 1.0, 4: 0.8, 5: 0.6 };
+  const dm = drainageMap[courtDrainage] ?? 1.0;
+
+  let rainPenalty = 0;
+
+  // Zero-moisture tolerance
+  if (window.some(h => h.pop > 0.3)) rainPenalty += 50;
+
+  // Per-hour
+  for (const h of window) {
+    if (h.pop > 0.3) rainPenalty += Math.round(h.pop * 20);
+    if (h.rain_1h > 0) rainPenalty += 15;
+    if (h.humidity > 90) rainPenalty += 10;
+    if (h.wind_speed > 10) rainPenalty -= 5; // wind helps drying
+  }
+
+  rainPenalty = Math.max(0, rainPenalty);
+  let score = 100 - Math.round(rainPenalty * dm);
+
+  // Ghost of Rain
+  let ghostActive = false;
+  if (offset > 0) {
+    const priorHours = hourly.slice(0, offset);
+    const priorRain = priorHours.some(h => h.rain_1h > 0);
+    if (priorRain) {
+      const dryMinutesNeeded = 120 * dm;
+      if (dryMinutesNeeded > offset * 60) {
+        score -= 40;
+        ghostActive = true;
+      }
+    }
+  }
+
+  // Active report dry time
+  if (latestReport) {
+    const elapsed = (Date.now() - new Date(latestReport.created_at).getTime()) / 60000;
+    const remaining = Math.max(0, latestReport.estimated_dry_minutes - elapsed);
+    if (remaining > offset * 60) {
+      score -= 30;
+    }
+  }
+
+  return { score: Math.max(0, Math.min(100, score)), ghostActive };
+}
+
+function getInsightText(
+  score: number,
+  allHourly: HourlyEntry[],
+  windowHours: HourlyEntry[],
+  ghostActive: boolean,
+): string {
+  if (ghostActive) return "Earlier rain still affecting courts — drainage factor applied.";
+  if (score >= 80) {
+    const firstRain = allHourly.find(h => h.pop > 0.3);
+    if (firstRain) {
+      const t = new Date(firstRain.dt * 1000).toLocaleTimeString([], { hour: "numeric", hour12: true });
+      return `High confidence: No rain expected until ${t}.`;
+    }
+    return "High confidence: Clear skies and no rain expected.";
+  }
+  if (score >= 50) {
+    const rainHour = windowHours.find(h => h.pop > 0.3);
+    if (rainHour) {
+      const t = new Date(rainHour.dt * 1000).toLocaleTimeString([], { hour: "numeric", hour12: true });
+      return `Caution: Incoming moisture at ${t} may cut match short.`;
+    }
+    return "Caution: Moisture risk detected in your play window.";
+  }
+  return "Low confidence: Rain likely. Consider indoor alternatives.";
+}
+
+function PlayabilityForecast({ weatherData, court, latestReport }: {
+  weatherData: WeatherWithHourly;
+  court: SovereignCourt;
+  latestReport: Report | null;
+}) {
+  const [offset, setOffset] = useState("0");
+  const hourly = weatherData.hourly ?? [];
+
+  const { score, ghostActive } = useMemo(
+    () => calculatePlayability(hourly, parseInt(offset), court.drainage, latestReport),
+    [hourly, offset, court.drainage, latestReport],
+  );
+
+  const windowHours = hourly.slice(parseInt(offset), parseInt(offset) + 3);
+  const insight = useMemo(
+    () => getInsightText(score, hourly, windowHours, ghostActive),
+    [score, hourly, windowHours, ghostActive],
+  );
+
+  // SVG ring params
+  const size = 160;
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (score / 100) * circumference;
+
+  const ringColor = score >= 70
+    ? "hsl(var(--court-green))"
+    : score >= 40
+      ? "hsl(var(--court-amber))"
+      : "hsl(var(--court-red))";
+
+  const textColor = score >= 70
+    ? "text-court-green"
+    : score >= 40
+      ? "text-court-amber"
+      : "text-destructive";
+
+  return (
+    <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
+      <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
+        Playability Forecast · 3-Hr Outlook
+      </span>
+
+      <div className="flex justify-center">
+        <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary/50 rounded-lg p-0.5">
+          <ToggleGroupItem value="0" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">Now</ToggleGroupItem>
+          <ToggleGroupItem value="1" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">+1h</ToggleGroupItem>
+          <ToggleGroupItem value="2" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">+2h</ToggleGroupItem>
+          <ToggleGroupItem value="3" className="text-xs px-3 py-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground rounded-md">+3h</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      <div className="flex justify-center">
+        <svg width={size} height={size} className="transform -rotate-90">
+          {/* Background ring */}
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none"
+            stroke="hsl(var(--secondary))"
+            strokeWidth={strokeWidth}
+          />
+          {/* Foreground ring */}
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none"
+            stroke={ringColor}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.3s ease" }}
+          />
+        </svg>
+        {/* Centered percentage */}
+        <div className="absolute flex items-center justify-center" style={{ width: size, height: size }}>
+          <span className={`font-mono font-bold text-3xl ${textColor}`}>{score}%</span>
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground px-2">{insight}</p>
+
+      <TooltipProvider delayDuration={100}>
+        <div className="flex justify-center">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="mx-auto flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                <Info className="w-3 h-3" /> How is this calculated?
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[280px] text-xs">
+              Score is a physics estimate based on your court's specific drainage/sun ratings + latest local weather. Always check for Captains' live reports for 100% verification.
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+}
+
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
       <div className="flex items-center justify-between">
