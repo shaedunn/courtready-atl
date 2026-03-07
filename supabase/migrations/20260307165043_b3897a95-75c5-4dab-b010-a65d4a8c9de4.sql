@@ -1,0 +1,1 @@
+ALTER TABLE public.sub_courts ADD COLUMN IF NOT EXISTS hazard_description text DEFAULT NULL;

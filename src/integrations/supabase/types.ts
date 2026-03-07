@@ -198,6 +198,7 @@ export type Database = {
           court_number: number
           created_at: string
           drainage: number
+          hazard_description: string | null
           id: string
           permanent_note: string | null
           sun_exposure: number
@@ -207,6 +208,7 @@ export type Database = {
           court_number: number
           created_at?: string
           drainage?: number
+          hazard_description?: string | null
           id?: string
           permanent_note?: string | null
           sun_exposure?: number
@@ -216,6 +218,7 @@ export type Database = {
           court_number?: number
           created_at?: string
           drainage?: number
+          hazard_description?: string | null
           id?: string
           permanent_note?: string | null
           sun_exposure?: number

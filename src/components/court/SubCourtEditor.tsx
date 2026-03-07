@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Pencil, Sun, Droplets, Save, X, Plus, AlertTriangle } from "lucide-react";
+import { Pencil, Sun, Droplets, Save, X, Plus, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import type { SubCourt } from "@/components/court/SubCourtSelector";
@@ -16,6 +16,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
   const [sunVal, setSunVal] = useState(3);
   const [drainVal, setDrainVal] = useState(3);
   const [noteVal, setNoteVal] = useState("");
+  const [hazardVal, setHazardVal] = useState("");
 
   const { data: subCourts = [] } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", courtId],
@@ -44,7 +45,8 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
           sun_exposure: sunVal,
           drainage: drainVal,
           permanent_note: noteVal.trim() || null,
-        })
+          hazard_description: hazardVal.trim() || null,
+        } as any)
         .eq("id", editingCourt.id);
       if (error) throw error;
     },
@@ -74,6 +76,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     setSunVal(sc.sun_exposure);
     setDrainVal(sc.drainage);
     setNoteVal(sc.permanent_note || "");
+    setHazardVal(sc.hazard_description || "");
   };
 
   const seedAllMutation = useMutation({
@@ -170,6 +173,19 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] text-destructive flex items-center gap-1">
+                  <ShieldAlert className="w-3 h-3" /> Safety Hazard
+                </label>
+                <Textarea
+                  value={hazardVal}
+                  onChange={(e) => setHazardVal(e.target.value)}
+                  placeholder="e.g. Moss on deuce side - slip risk when damp"
+                  rows={2}
+                  className="text-xs resize-none border-destructive/30"
+                />
+              </div>
+
               <div className="flex gap-2">
                 <button
                   onClick={() => setEditingCourt(null)}
@@ -201,7 +217,13 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
                 <span>☀ {sc.sun_exposure}/5</span>
                 <span>💧 {sc.drainage}/5</span>
               </div>
-              {sc.permanent_note && (
+              {sc.hazard_description && (
+                <div className="flex items-start gap-1 mt-1.5">
+                  <ShieldAlert className="w-3 h-3 text-destructive flex-shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-destructive line-clamp-2">{sc.hazard_description}</p>
+                </div>
+              )}
+              {sc.permanent_note && !sc.hazard_description && (
                 <div className="flex items-start gap-1 mt-1.5">
                   <AlertTriangle className="w-3 h-3 text-court-amber flex-shrink-0 mt-0.5" />
                   <p className="text-[10px] text-court-amber line-clamp-2">{sc.permanent_note}</p>
