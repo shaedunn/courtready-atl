@@ -37,7 +37,7 @@ function normalizeRating(rating: number): number {
  *
  * Base:       60 mins per 0.1" rain → 600 × effectiveRain
  * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×3.0 if >90% (saturated air)
- * Humidity Floor: if >90%, minimum 120 minutes (evaporation effectively zero)
+ * Humidity Floor: if >90%, minimum 180 minutes (evaporation effectively zero)
  * Wind:       ×1.3 if wind < 3 mph
  * Drainage:   divide by normalized drainage (1-5 → 0.2-1.0)
  * Sun:        divide by normalized sun exposure (1-5 → 0.2-1.0)
