@@ -98,23 +98,14 @@ export default function FacilityAdmin() {
   // Add courts mutation
   const addCourtsMutation = useMutation({
     mutationFn: async (numbers: number[]) => {
-      const insertsFacility = numbers.map((n) => ({
+      const inserts = numbers.map((n) => ({
         facility_id: id!,
         court_number: n,
         sun_exposure: 3,
         drainage: 3,
       }));
 
-      const facilityInsert = await (supabase.from("sub_courts") as any).insert(insertsFacility);
-      if (!facilityInsert.error) return;
-
-      const insertsCourt = numbers.map((n) => ({
-        court_id: id!,
-        court_number: n,
-        sun_exposure: 3,
-        drainage: 3,
-      }));
-      const { error } = await supabase.from("sub_courts").insert(insertsCourt as any);
+      const { error } = await (supabase.from("sub_courts") as any).insert(inserts);
       if (error) throw error;
     },
     onSuccess: () => {
