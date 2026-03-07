@@ -69,7 +69,7 @@ function CourtCard({
             <h2 className="font-semibold text-sm text-card-foreground truncate">{court.name}</h2>
             <div className="flex items-center gap-1 mt-1">
               <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">{court.address}</span>
+              <span className="text-xs text-muted-foreground truncate">{court.location}</span>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -153,7 +153,7 @@ export default function Dashboard() {
   const filtered = courts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.address.toLowerCase().includes(search.toLowerCase())
+      c.location.toLowerCase().includes(search.toLowerCase())
   );
 
   const pinnedCourts = filtered.filter((c) => pinnedIds.includes(c.id));
