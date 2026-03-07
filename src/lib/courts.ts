@@ -96,9 +96,9 @@ export function calculateDryTime(
 
   const result = Math.round(Math.max(0, minutes * hindranceMultiplier));
 
-  // Humidity Floor: if >90%, minimum 120 minutes
+  // Humidity Floor: if >90%, minimum 180 minutes
   if (humidity > 90 && effectiveRain > 0) {
-    return Math.max(120, result);
+    return Math.max(180, result);
   }
 
   return result;
@@ -160,7 +160,7 @@ export function getCourtStatus(
     ? (Date.now() - new Date(report.created_at).getTime()) / 60000
     : Number.POSITIVE_INFINITY;
 
-  if (highHumidity && (recentRain || (report && report.rainfall !== null))) {
+  if (highHumidity) {
     return "caution";
   }
 
@@ -184,7 +184,7 @@ export function getCourtStatus(
 export const STATUS_CONFIG: Record<CourtStatus, { color: string; label: string }> = {
   playable: { color: "bg-court-green", label: "Playable" },
   verified: { color: "bg-court-green", label: "Verified Playable" },
-  caution: { color: "bg-court-amber", label: "High Humidity" },
+  caution: { color: "bg-court-amber", label: "Saturated Air" },
   drying: { color: "bg-court-amber", label: "Drying" },
   wet: { color: "bg-court-red", label: "Wet" },
 };
