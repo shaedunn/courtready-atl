@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings } from "lucide-react";
+import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert } from "lucide-react";
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
@@ -575,6 +575,17 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
+        {/* Moss / Hazard Alerts */}
+        {subCourts && subCourts.filter(sc => sc.hazard_description).map(sc => (
+          <div key={sc.id} className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
+            <ShieldAlert className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold text-destructive">Court {sc.court_number} — Safety Hazard</p>
+              <p className="text-xs text-destructive/80">{sc.hazard_description}</p>
+            </div>
+          </div>
+        ))}
+
         <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={weatherData?.rain_1h > 0} />
 
         {/* Rain reset banner */}

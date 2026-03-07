@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Search, Droplets, MapPin, Pin } from "lucide-react";
+import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase, type SovereignCourt, type Observation } from "@/lib/supabase";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -91,6 +91,61 @@ function CourtCard({
   );
 }
 
+/* ─── Pilot Ticker ─── */
+function PilotTicker() {
+  const { data: recentActivity = [] } = useQuery({
+    queryKey: ["pilot-ticker"],
+    queryFn: async () => {
+      const [{ data: reports }, { data: observations }] = await Promise.all([
+        supabase.from("reports").select("court_id, created_at, rainfall").order("created_at", { ascending: false }).limit(3),
+        supabase.from("observations").select("court_id, created_at, status, display_name").order("created_at", { ascending: false }).limit(3),
+      ]);
+      const items: { text: string; time: string }[] = [];
+      for (const r of reports ?? []) {
+        const ago = getTimeAgo(r.created_at);
+        items.push({ text: `📋 Report: ${r.rainfall}" rain`, time: ago });
+      }
+      for (const o of observations ?? []) {
+        const ago = getTimeAgo(o.created_at);
+        const label = o.status === "playable" ? "✅ Playable" : o.status === "still_wet" ? "💧 Still Wet" : "🧹 Squeegee";
+        items.push({ text: `${label} — ${o.display_name}`, time: ago });
+      }
+      items.sort((a, b) => a.time.localeCompare(b.time));
+      return items.slice(0, 5);
+    },
+    refetchInterval: 30000,
+  });
+
+  if (recentActivity.length === 0) return null;
+
+  return (
+    <div className="overflow-hidden bg-secondary/50 border-b border-border">
+      <div className="flex animate-scroll-x gap-8 px-4 py-1.5 whitespace-nowrap">
+        {recentActivity.map((item, i) => (
+          <span key={i} className="text-[11px] text-muted-foreground flex-shrink-0">
+            {item.text} <span className="text-muted-foreground/50">({item.time})</span>
+          </span>
+        ))}
+        {/* Duplicate for seamless scroll */}
+        {recentActivity.map((item, i) => (
+          <span key={`dup-${i}`} className="text-[11px] text-muted-foreground flex-shrink-0">
+            {item.text} <span className="text-muted-foreground/50">({item.time})</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getTimeAgo(dateStr: string): string {
+  const mins = Math.round((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
 export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [pinnedIds, _setPinnedIds] = useState<string[]>(getPinnedIds);
@@ -104,7 +159,7 @@ export default function Dashboard() {
     });
   }, []);
 
-  const { data: courts = [], isLoading: courtsLoading } = useQuery<SovereignCourt[]>({
+  const { data: courts = [], isLoading: courtsLoading, isError: courtsError } = useQuery<SovereignCourt[]>({
     queryKey: ["courts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("courts").select("*").order("name");
@@ -112,6 +167,7 @@ export default function Dashboard() {
       return data as unknown as SovereignCourt[];
     },
     placeholderData: keepPreviousData,
+    retry: 2,
   });
 
   const { data: latestReports = {} } = useQuery({
@@ -128,7 +184,7 @@ export default function Dashboard() {
       }
       return map;
     },
-    refetchInterval: 30000,
+    refetchInterval: courtsError ? false : 30000,
     placeholderData: keepPreviousData,
   });
 
@@ -146,7 +202,7 @@ export default function Dashboard() {
       }
       return map;
     },
-    refetchInterval: 30000,
+    refetchInterval: courtsError ? false : 30000,
     placeholderData: keepPreviousData,
   });
 
@@ -164,9 +220,18 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4 pt-safe">
         <div className="max-w-lg mx-auto py-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Droplets className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-bold tracking-tight">CourtReady <span className="text-primary">ATL</span></h1>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Droplets className="w-5 h-5 text-primary" />
+              <h1 className="text-lg font-bold tracking-tight">CourtReady <span className="text-primary">ATL</span></h1>
+            </div>
+            <button
+              onClick={() => navigate("/instructions")}
+              className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+              aria-label="Instructions"
+            >
+              <BookOpen className="w-4 h-4 text-muted-foreground" />
+            </button>
           </div>
           <p className="text-xs text-muted-foreground tracking-wide uppercase mb-4">Atlanta Court Conditions</p>
           <div className="relative">
@@ -182,6 +247,9 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Pilot Ticker */}
+      {!courtsError && !courtsLoading && <PilotTicker />}
+
       <main className="max-w-lg mx-auto px-4 py-4 space-y-2">
         {courtsLoading ? (
           <>
@@ -190,6 +258,23 @@ export default function Dashboard() {
             <CourtCardSkeleton />
             <CourtCardSkeleton />
           </>
+        ) : courtsError ? (
+          <div className="text-center py-12 space-y-3">
+            <AlertTriangle className="w-8 h-8 text-destructive mx-auto" />
+            <p className="text-sm font-medium text-destructive">Connection Error</p>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+              Unable to reach the server. If this persists, try clearing your browser cache or opening in a private window.
+            </p>
+            <button
+              onClick={() => {
+                localStorage.removeItem("courtready-cache-busted-v3");
+                location.reload();
+              }}
+              className="text-xs text-primary underline"
+            >
+              Force cache clear & reload
+            </button>
+          </div>
         ) : courts.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-12">No courts found</p>
         ) : filtered.length === 0 ? (
