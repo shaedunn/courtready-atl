@@ -1,32 +1,60 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin } from "lucide-react";
+import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, AlertTriangle } from "lucide-react";
 import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
-import { formatDryTime } from "@/lib/courts";
+import { formatDryTime, getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import ReportForm from "@/components/court/ReportForm";
 
 type Report = Tables<"reports">;
 
-function StatusCard({ report }: { report: Report | null }) {
+function StatusCard({ report, courtId }: { report: Report | null; courtId: string }) {
+  const queryClient = useQueryClient();
+  const status = getCourtStatus(report);
+  const config = STATUS_CONFIG[status];
+
   const dryTime = report
     ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
     : null;
-
   const roundedDry = dryTime !== null ? Math.round(dryTime) : null;
+
+  const stillWetMutation = useMutation({
+    mutationFn: async () => {
+      if (!report) throw new Error("No report");
+      const { error } = await supabase
+        .from("reports")
+        .update({ estimated_dry_minutes: report.estimated_dry_minutes + 30 })
+        .eq("id", report.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["latest-report", courtId] });
+      queryClient.invalidateQueries({ queryKey: ["latest-reports"] });
+    },
+  });
+
+  const showStillWet = status === "drying" || status === "wet";
 
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow">
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Current Status</span>
-        {report && (
-          <span className="text-[11px] text-muted-foreground font-mono">
-            {new Date(report.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {report && (
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {new Date(report.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <Badge variant="outline" className="text-[10px] px-2 py-0.5 gap-1.5 border-border">
+            <span className={`w-2 h-2 rounded-full ${config.color} inline-block`} />
+            {config.label}
+          </Badge>
+        </div>
       </div>
+
       {roundedDry !== null && roundedDry > 0 ? (
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
@@ -48,6 +76,18 @@ function StatusCard({ report }: { report: Report | null }) {
         </div>
       ) : (
         <p className="text-center text-sm text-muted-foreground py-2">No recent reports</p>
+      )}
+
+      {/* Still Wet? — Social validation button */}
+      {showStillWet && (
+        <button
+          onClick={() => stillWetMutation.mutate()}
+          disabled={stillWetMutation.isPending}
+          className="mt-4 w-full flex items-center justify-center gap-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg py-2.5 text-sm font-medium hover:bg-destructive/20 active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          <AlertTriangle className="w-4 h-4" />
+          {stillWetMutation.isPending ? "Updating..." : "Still Wet? (+30 mins)"}
+        </button>
       )}
     </div>
   );
@@ -218,7 +258,7 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        <StatusCard report={latestReport} />
+        <StatusCard report={latestReport} courtId={court.id} />
 
         {!showForm && (
           <button onClick={() => setShowForm(true)}

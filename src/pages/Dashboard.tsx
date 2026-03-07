@@ -5,6 +5,8 @@ import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
+import { Badge } from "@/components/ui/badge";
 
 type Report = Tables<"reports">;
 
@@ -22,27 +24,6 @@ function setPinnedIds(ids: string[]) {
   localStorage.setItem(PINNED_KEY, JSON.stringify(ids));
 }
 
-function getStatusColor(report: Report | null) {
-  if (!report) return "bg-muted-foreground/30";
-  const age = (Date.now() - new Date(report.created_at).getTime()) / 60000;
-  if (age > 180) return "bg-muted-foreground/30";
-  if (report.estimated_dry_minutes <= 0) return "bg-court-green";
-  const remaining = report.estimated_dry_minutes - age;
-  if (remaining <= 0) return "bg-court-green";
-  if (remaining <= 30) return "bg-court-amber";
-  return "bg-court-red";
-}
-
-function getStatusText(report: Report | null) {
-  if (!report) return "No report";
-  const age = (Date.now() - new Date(report.created_at).getTime()) / 60000;
-  if (age > 180) return "No report";
-  if (report.estimated_dry_minutes <= 0) return "Dry";
-  const remaining = Math.max(0, report.estimated_dry_minutes - age);
-  if (remaining <= 0) return "Dry";
-  return `~${Math.round(remaining)}m to dry`;
-}
-
 function CourtCardSkeleton() {
   return (
     <div className="bg-card rounded-lg p-4 border border-border">
@@ -52,8 +33,7 @@ function CourtCardSkeleton() {
           <Skeleton className="h-3 w-1/2" />
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <Skeleton className="w-2.5 h-2.5 rounded-full" />
-          <Skeleton className="h-3 w-16" />
+          <Skeleton className="w-16 h-5 rounded-full" />
         </div>
       </div>
     </div>
@@ -73,6 +53,9 @@ function CourtCard({
   onTogglePin: (id: string) => void;
   onNavigate: (id: string) => void;
 }) {
+  const status = getCourtStatus(report);
+  const config = STATUS_CONFIG[status];
+
   return (
     <div className="relative">
       <button
@@ -88,8 +71,10 @@ function CourtCard({
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-            <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(report)} status-pulse`} />
-            <span className="text-[11px] font-mono text-muted-foreground">{getStatusText(report)}</span>
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5 gap-1.5 border-border">
+              <span className={`w-2 h-2 rounded-full ${config.color} inline-block`} />
+              {config.label}
+            </Badge>
           </div>
         </div>
       </button>
