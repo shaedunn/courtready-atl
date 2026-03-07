@@ -417,7 +417,40 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
 export default function CourtDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+
+  const { data: subCourts = [] } = useQuery<SubCourtRow[]>({
+    queryKey: ["sub-courts", id],
+    queryFn: async () => {
+      console.log("Fetching for Facility:", id);
+      const { data, error } = await (supabase.from("sub_courts") as any)
+        .select("*")
+        .eq("facility_id", id!)
+        .order("court_number");
+      if (error) throw error;
+      console.log("Raw Data Received:", data ?? []);
+      return (data ?? []) as SubCourtRow[];
+    },
+    enabled: !!id,
+  });
+
+  const forceCreateSubCourtsMutation = useMutation({
+    mutationFn: async () => {
+      const rows = Array.from({ length: 4 }, (_, index) => ({
+        facility_id: id!,
+        court_number: index + 1,
+        sun_exposure: 3,
+        drainage: 3,
+      }));
+
+      const { error } = await (supabase.from("sub_courts") as any).insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sub-courts", id] });
+    },
+  });
 
   const { data: court, isLoading } = useQuery<SovereignCourt>({
     queryKey: ["court", id],
