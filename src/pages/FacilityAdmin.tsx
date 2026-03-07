@@ -5,18 +5,7 @@ import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-
-type SubCourt = {
-  id: string;
-  court_id?: string;
-  facility_id?: string;
-  court_number: number;
-  sun_exposure: number;
-  drainage: number;
-  permanent_note: string | null;
-  hazard_description?: string | null;
-  created_at: string;
-};
+import type { SubCourtRow as SubCourt } from "@/types/supabase";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Poor",
