@@ -177,6 +177,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
     : null;
   const roundedDry = dryTime !== null ? Math.round(dryTime) : null;
   const squeegeeDry = roundedDry !== null && roundedDry > 0 ? calculateSqueegeeDryTime(roundedDry) : null;
+  const saturatedAirEstimate = Math.max(180, roundedDry ?? 180);
 
   // Find verifier info
   const verifierName = latestObservation?.status === "playable" ? latestObservation.display_name : null;
