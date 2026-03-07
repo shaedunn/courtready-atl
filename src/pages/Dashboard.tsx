@@ -222,6 +222,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      <OnboardingModal />
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4 pt-safe">
         <div className="max-w-lg mx-auto py-4">
           <div className="flex items-center justify-between mb-1">
