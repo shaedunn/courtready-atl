@@ -47,13 +47,22 @@ serve(async (req) => {
     }
 
     // Build normalized payload
-    const payload = {
+    const payload: Record<string, unknown> = {
       temp: data.current?.temp,
       humidity: data.current?.humidity,
       wind_speed: data.current?.wind_speed,
       rain_1h: data.current?.rain?.["1h"] ?? 0,
       description: data.current?.weather?.[0]?.description,
       icon: data.current?.weather?.[0]?.icon,
+      hourly: (data.hourly || []).slice(0, 6).map((h: any) => ({
+        dt: h.dt,
+        temp: h.temp,
+        humidity: h.humidity,
+        wind_speed: h.wind_speed,
+        pop: h.pop ?? 0,
+        rain_1h: h.rain?.["1h"] ?? 0,
+        description: h.weather?.[0]?.description,
+      })),
     };
 
     console.log(`[get-weather] Response payload:`, JSON.stringify(payload));
