@@ -9,8 +9,8 @@ export type SubCourtRow = {
   id: string;
   facility_id: string;
   court_number: number;
-  sun_exposure: number;
-  drainage: number;
+  sun_exposure_rating: number;
+  drainage_rating: number;
   permanent_note: string | null;
   hazard_description: string | null;
   created_at: string;
