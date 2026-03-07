@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can update reports" ON public.reports FOR UPDATE USING (true) WITH CHECK (true);

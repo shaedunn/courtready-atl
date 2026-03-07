@@ -25,12 +25,14 @@ const SQUEEGEE_FACTOR: Record<number, number> = {
 };
 
 /**
- * Dunn Law — physics-driven dry time engine.
+ * Step-Multiplier dry time engine (V1).
  *
- * effectiveRain = rainfall × squeegee_factor
- * evapPower    = (temp/70) × ((100-humidity)/100) × (1 + wind/10) × sunExposure × drainage
- * minutes      = (effectiveRain × 45) / evapPower
- * result       = round(minutes × hindranceFactor)
+ * Base:       60 mins per 0.1" rain → 600 × effectiveRain
+ * Humidity:   ×1.5 if 70–85%, ×2.5 if >85%
+ * Wind:       ×1.3 if wind < 3 mph
+ * Drainage:   divide by drainage_rating (0–1 scale, higher = better)
+ * Sun:        divide by sun_exposure_rating (0–1 scale, higher = better)
+ * Hindrance:  multiply by highest hindrance factor
  */
 export function calculateDryTime(
   rainfall: number,
@@ -43,18 +45,29 @@ export function calculateDryTime(
   hindrances: Hindrance[] = []
 ): number {
   const effectiveRain = rainfall * SQUEEGEE_FACTOR[squeegeeCount];
+  if (effectiveRain <= 0) return 0;
 
-  const tempFactor = temperature / 70;
-  const humidityFactor = (100 - humidity) / 100;
-  const windFactor = 1 + windSpeed / 10;
-  const evapPower = tempFactor * humidityFactor * windFactor * sunExposure * drainage;
+  // Base: 60 mins per 0.1 inch
+  let minutes = effectiveRain * 600;
 
-  // Guard against zero/negative evapPower (e.g. 100% humidity)
-  if (evapPower <= 0) return effectiveRain > 0 ? 9999 : 0;
+  // Humidity penalty
+  if (humidity > 85) {
+    minutes *= 2.5;
+  } else if (humidity >= 70) {
+    minutes *= 1.5;
+  }
 
-  const baseDryMinutes = (effectiveRain * 45) / evapPower;
+  // Wind penalty (low wind slows drying)
+  if (windSpeed < 3) {
+    minutes *= 1.3;
+  }
 
-  // Apply hindrance multiplier (use highest if multiple selected)
+  // Drainage & sun exposure as divisors (guard against zero)
+  const drainageFactor = Math.max(drainage, 0.1);
+  const sunFactor = Math.max(sunExposure, 0.1);
+  minutes = minutes / drainageFactor / sunFactor;
+
+  // Hindrance multiplier
   const hindranceMultiplier =
     hindrances.length === 0 || hindrances.includes("none")
       ? 1.0
@@ -64,7 +77,7 @@ export function calculateDryTime(
             .map((h) => HINDRANCE_OPTIONS.find((o) => o.value === h)?.multiplier ?? 1.0)
         );
 
-  return Math.round(Math.max(0, baseDryMinutes * hindranceMultiplier));
+  return Math.round(Math.max(0, minutes * hindranceMultiplier));
 }
 
 /**
@@ -79,3 +92,35 @@ export function formatDryTime(minutes: number): string {
   if (m === 0) return `${h} hour${h > 1 ? "s" : ""}`;
   return `${h} hour${h > 1 ? "s" : ""} and ${m} minute${m > 1 ? "s" : ""}`;
 }
+
+/**
+ * Traffic-light status from a report row.
+ * Green: no report in 12h OR dry time elapsed.
+ * Yellow: report exists, dry time not yet finished.
+ * Red: report < 60 min old with > 0.25" rain.
+ */
+export type CourtStatus = "playable" | "drying" | "wet";
+
+export function getCourtStatus(report: { created_at: string; estimated_dry_minutes: number; rainfall: number } | null): CourtStatus {
+  if (!report) return "playable";
+
+  const ageMinutes = (Date.now() - new Date(report.created_at).getTime()) / 60000;
+
+  // No report in 12 hours → playable
+  if (ageMinutes > 720) return "playable";
+
+  // Dry time has elapsed → playable
+  if (ageMinutes >= report.estimated_dry_minutes) return "playable";
+
+  // Report < 60 min old with heavy rain → wet
+  if (ageMinutes < 60 && report.rainfall > 0.25) return "wet";
+
+  // Otherwise → drying
+  return "drying";
+}
+
+export const STATUS_CONFIG: Record<CourtStatus, { color: string; label: string }> = {
+  playable: { color: "bg-court-green", label: "Playable" },
+  drying: { color: "bg-court-amber", label: "Drying" },
+  wet: { color: "bg-court-red", label: "Wet" },
+};
