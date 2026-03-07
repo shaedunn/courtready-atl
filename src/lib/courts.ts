@@ -36,7 +36,7 @@ function normalizeRating(rating: number): number {
  * Step-Multiplier dry time engine (V1).
  *
  * Base:       60 mins per 0.1" rain → 600 × effectiveRain
- * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×2.5 if >90%
+ * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×3.0 if >90% (saturated air)
  * Humidity Floor: if >90%, minimum 120 minutes (evaporation effectively zero)
  * Wind:       ×1.3 if wind < 3 mph
  * Drainage:   divide by normalized drainage (1-5 → 0.2-1.0)
@@ -60,9 +60,9 @@ export function calculateDryTime(
   // Base: 60 mins per 0.1 inch
   let minutes = effectiveRain * 600;
 
-  // Humidity penalty — 90%+ caps natural evaporation speed at 40% (×2.5)
+  // Humidity penalty — 90%+ caps natural evaporation speed at ~33% (×3.0, saturated air)
   if (humidity > 90) {
-    minutes *= 2.5;
+    minutes *= 3.0;
   } else if (humidity > 85) {
     minutes *= 2.0;
   } else if (humidity >= 70) {

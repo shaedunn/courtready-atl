@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import ReportForm from "@/components/court/ReportForm";
+import SubCourtEditor from "@/components/court/SubCourtEditor";
 
 type Report = Tables<"reports">;
 
@@ -242,7 +243,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity }: { r
           {highHumidity && (
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-court-amber">
               <DropletsIcon className="w-3.5 h-3.5" />
-              <span>Humidity &gt;90% — evaporation stalled (min 120 min)</span>
+              <span>Humidity &gt;90% — saturated air, 3× dry time (min 120 min)</span>
             </div>
           )}
         </div>
@@ -534,6 +535,9 @@ export default function CourtDetail() {
         )}
 
         {showForm && <ReportForm court={court} onSubmitted={() => setShowForm(false)} />}
+
+        {/* Inline Sub-Court Editor */}
+        <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
 
         <CaptainsLog court={court} />
       </main>
