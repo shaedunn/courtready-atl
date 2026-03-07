@@ -134,18 +134,11 @@ export default function FacilityAdmin() {
     mutationFn: async () => {
       const numbers = Array.from(selectedForBulk);
       for (const n of numbers) {
-        const facilityUpdate = await (supabase.from("sub_courts") as any)
+        const { error } = await (supabase.from("sub_courts") as any)
           .update({ sun_exposure: bulkSun, drainage: bulkDrain })
           .eq("facility_id", id!)
           .eq("court_number", n);
 
-        if (!facilityUpdate.error) continue;
-
-        const { error } = await supabase
-          .from("sub_courts")
-          .update({ sun_exposure: bulkSun, drainage: bulkDrain } as any)
-          .eq("court_id", id!)
-          .eq("court_number", n);
         if (error) throw error;
       }
     },
