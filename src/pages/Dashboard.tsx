@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Search, Droplets, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 
-type Court = Tables<"courts">;
 type Report = Tables<"reports">;
 
 function getStatusColor(report: Report | null) {
@@ -33,19 +32,18 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
-  const { data: courts = [] } = useQuery({
+  const { data: courts = [] } = useQuery<SovereignCourt[]>({
     queryKey: ["courts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("courts").select("*").order("name");
       if (error) throw error;
-      return data;
+      return data as unknown as SovereignCourt[];
     },
   });
 
   const { data: latestReports = {} } = useQuery({
     queryKey: ["latest-reports"],
     queryFn: async () => {
-      // Get latest report per court
       const { data, error } = await supabase
         .from("reports")
         .select("*")
@@ -63,7 +61,7 @@ export default function Dashboard() {
   const filtered = courts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.location.toLowerCase().includes(search.toLowerCase())
+      c.address.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -94,7 +92,7 @@ export default function Dashboard() {
           return (
             <button
               key={court.id}
-              onClick={() => navigate(`/court/${court.slug}`)}
+              onClick={() => navigate(`/court/${court.id}`)}
               className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-primary/30 transition-all active:scale-[0.98] card-glow"
             >
               <div className="flex items-start justify-between gap-3">
@@ -102,9 +100,8 @@ export default function Dashboard() {
                   <h2 className="font-semibold text-sm text-card-foreground truncate">{court.name}</h2>
                   <div className="flex items-center gap-1 mt-1">
                     <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                    <span className="text-xs text-muted-foreground truncate">{court.location}</span>
+                    <span className="text-xs text-muted-foreground truncate">{court.address}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground mt-1 block">{court.court_count} courts · {court.surface}</span>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                   <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(report)} status-pulse`} />
