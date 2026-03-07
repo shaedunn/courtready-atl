@@ -166,9 +166,10 @@ function SqueegeeAction({ report, courtId }: { report: Report; courtId: string }
 }
 
 /* ─── Status Card ─── */
-function StatusCard({ report, courtId, latestObservation }: { report: Report | null; courtId: string; latestObservation: Observation | null }) {
-  const status = getCourtStatus(report, latestObservation);
+function StatusCard({ report, courtId, latestObservation, currentHumidity }: { report: Report | null; courtId: string; latestObservation: Observation | null; currentHumidity?: number | null }) {
+  const status = getCourtStatus(report, latestObservation, currentHumidity);
   const config = STATUS_CONFIG[status];
+  const highHumidity = (currentHumidity ?? 0) > 90;
 
   const dryTime = report
     ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
@@ -508,7 +509,7 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} />
+        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} />
 
         {/* Rain reset banner */}
         {rainResetActive && (
