@@ -115,8 +115,8 @@ export default function ReportForm({
   const manualReady = isManualEntry && effectiveWeather !== null;
 
   // Sovereign court values — debris applies 20% drainage penalty
-  const sunExposure = court.sun_exposure;
-  const effectiveDrainage = debrisOnCourt ? court.drainage * 0.8 : court.drainage;
+  const sunExposure = court.sun_exposure_rating;
+  const effectiveDrainage = debrisOnCourt ? court.drainage_rating * 0.8 : court.drainage_rating;
 
   const submitMutation = useMutation({
     mutationFn: async () => {
