@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors } from "lucide-react";
+import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings } from "lucide-react";
 import { supabase, type SovereignCourt, type Observation, SOVEREIGN_ANON, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
@@ -501,6 +501,9 @@ export default function CourtDetail() {
               <p className="text-xs text-muted-foreground truncate">{court.address}</p>
             </div>
           </div>
+          <button onClick={() => navigate(`/court/${id}/admin`)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" aria-label="Facility Setup">
+            <Settings className="w-5 h-5 text-muted-foreground" />
+          </button>
         </div>
       </header>
 

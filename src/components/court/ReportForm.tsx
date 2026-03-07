@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, Thermometer, Droplets, Wind, AlertTriangle, Info, Leaf } from "lucide-react";
 import { supabase, SOVEREIGN_ANON, type SovereignCourt, getDisplayName, setDisplayName } from "@/lib/supabase";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   calculateDryTime,
   calculateSqueegeeDryTime,
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import SubCourtSelector, { type SubCourt } from "@/components/court/SubCourtSelector";
 
 type WeatherData = {
   temp: number;
@@ -38,8 +39,23 @@ export default function ReportForm({
   const [observations, setObservations] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [displayName, setLocalDisplayName] = useState(getDisplayName());
+  const [selectedCourtNumber, setSelectedCourtNumber] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Fetch sub-courts for this facility
+  const { data: subCourts = [] } = useQuery<SubCourt[]>({
+    queryKey: ["sub-courts", court.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sub_courts")
+        .select("*")
+        .eq("court_id", court.id)
+        .order("court_number");
+      if (error) throw error;
+      return data as unknown as SubCourt[];
+    },
+  });
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -107,9 +123,11 @@ export default function ReportForm({
   const effectiveRainfall = getEffectiveRainfall();
   const manualReady = isManualEntry && effectiveWeather !== null;
 
-  // 1-5 scale values from DB; debris applies 20% drainage penalty
-  const sunExposure = court.sun_exposure;
-  const effectiveDrainage = debrisOnCourt ? court.drainage * 0.8 : court.drainage;
+  // Use sub-court ratings if selected, otherwise facility defaults
+  const selectedSubCourt = selectedCourtNumber !== null ? subCourts.find((sc) => sc.court_number === selectedCourtNumber) : null;
+  const sunExposure = selectedSubCourt ? selectedSubCourt.sun_exposure : court.sun_exposure;
+  const baseDrainage = selectedSubCourt ? selectedSubCourt.drainage : court.drainage;
+  const effectiveDrainage = debrisOnCourt ? baseDrainage * 0.8 : baseDrainage;
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -195,6 +213,9 @@ export default function ReportForm({
   return (
     <div className="bg-card rounded-lg p-5 border border-border space-y-4 card-glow">
       <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Captain's Report</h3>
+
+      {/* Sub-Court Selector */}
+      <SubCourtSelector subCourts={subCourts} selectedNumber={selectedCourtNumber} onSelect={setSelectedCourtNumber} />
 
       {/* Display Name */}
       <div>
