@@ -1,8 +1,13 @@
+import { useEffect } from "react";
 import { ArrowLeft, CheckCircle2, Droplets, Scissors, AlertTriangle, Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Instructions() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    localStorage.setItem("courtready-visited-instructions", "true");
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,9 +32,9 @@ export default function Instructions() {
               Playable = Lines Wiped + No Standing Water
             </p>
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            A court is considered <span className="font-medium text-foreground">Playable</span> when you can roll a towel across the baseline and it comes up dry, and there's no visible standing water anywhere on the playing surface.
-          </p>
+           <p className="text-xs text-muted-foreground leading-relaxed">
+             Standing water is the enemy, but dampness is manageable. Once you have pushed standing water off, use the Towel-Roll technique on the surface and wipe the lines. If the lines are dry, the court is marked <span className="font-medium text-foreground">Playable</span> for this pilot.
+           </p>
         </section>
 
         {/* Squeegee Best Practices */}

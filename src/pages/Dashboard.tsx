@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle } from "lucide-react";
+import OnboardingModal from "@/components/OnboardingModal";
 import { useNavigate } from "react-router-dom";
 import { supabase, type SovereignCourt, type Observation } from "@/lib/supabase";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -111,7 +112,9 @@ function PilotTicker() {
         items.push({ text: `${label} — ${o.display_name}`, time: ago });
       }
       items.sort((a, b) => a.time.localeCompare(b.time));
-      return items.slice(0, 5);
+      // Prepend pilot milestone
+      items.unshift({ text: "🎯 Pilot Phase: 14 Facilities | Goal: 1,000 Verified Reports", time: "" });
+      return items.slice(0, 6);
     },
     refetchInterval: 30000,
   });
@@ -122,14 +125,14 @@ function PilotTicker() {
     <div className="overflow-hidden bg-secondary/50 border-b border-border">
       <div className="flex animate-scroll-x gap-8 px-4 py-1.5 whitespace-nowrap">
         {recentActivity.map((item, i) => (
-          <span key={i} className="text-[11px] text-muted-foreground flex-shrink-0">
-            {item.text} <span className="text-muted-foreground/50">({item.time})</span>
+         <span key={i} className="text-[11px] text-muted-foreground flex-shrink-0">
+            {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
           </span>
         ))}
         {/* Duplicate for seamless scroll */}
         {recentActivity.map((item, i) => (
-          <span key={`dup-${i}`} className="text-[11px] text-muted-foreground flex-shrink-0">
-            {item.text} <span className="text-muted-foreground/50">({item.time})</span>
+         <span key={`dup-${i}`} className="text-[11px] text-muted-foreground flex-shrink-0">
+            {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
           </span>
         ))}
       </div>
@@ -149,6 +152,7 @@ function getTimeAgo(dateStr: string): string {
 export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [pinnedIds, _setPinnedIds] = useState<string[]>(getPinnedIds);
+  const hasVisitedInstructions = localStorage.getItem("courtready-visited-instructions") === "true";
   const navigate = useNavigate();
 
   const togglePin = useCallback((id: string) => {
@@ -218,6 +222,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      <OnboardingModal />
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4 pt-safe">
         <div className="max-w-lg mx-auto py-4">
           <div className="flex items-center justify-between mb-1">
@@ -227,10 +232,11 @@ export default function Dashboard() {
             </div>
             <button
               onClick={() => navigate("/instructions")}
-              className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors ${!hasVisitedInstructions ? "animate-pulse" : ""}`}
               aria-label="Instructions"
             >
-              <BookOpen className="w-4 h-4 text-muted-foreground" />
+              <BookOpen className={`w-4 h-4 ${!hasVisitedInstructions ? "text-primary" : "text-muted-foreground"}`} />
+              {!hasVisitedInstructions && <span className="text-[10px] font-semibold text-primary">Start Here</span>}
             </button>
           </div>
           <p className="text-xs text-muted-foreground tracking-wide uppercase mb-4">Atlanta Court Conditions</p>
