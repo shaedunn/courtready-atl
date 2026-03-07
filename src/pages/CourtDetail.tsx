@@ -172,7 +172,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   const status = getCourtStatus(report, latestObservation, currentHumidity, recentRain);
   const config = STATUS_CONFIG[status];
   const highHumidity = (currentHumidity ?? 0) > 90;
-  const saturatedAirHardLock = highHumidity && report?.rainfall !== null;
+  const saturatedAirHardLock = highHumidity;
   const displayLabel = saturatedAirHardLock ? "Saturated Air - UNPLAYABLE" : config.label;
   const displayColor = saturatedAirHardLock ? "bg-destructive" : config.color;
 
@@ -261,7 +261,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
           {highHumidity && (
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-court-amber">
               <DropletsIcon className="w-3.5 h-3.5" />
-              <span>Humidity &gt;90% — saturated air, 3× dry time (min 120 min)</span>
+              <span>Humidity &gt;90% — saturated air, 3× dry time (min 180 min)</span>
             </div>
           )}
         </div>
@@ -440,8 +440,8 @@ export default function CourtDetail() {
       const rows = Array.from({ length: 4 }, (_, index) => ({
         facility_id: id!,
         court_number: index + 1,
-        sun_exposure: 3,
-        drainage: 3,
+        sun_exposure_rating: 3,
+        drainage_rating: 3,
       }));
 
       const { error } = await (supabase.from("sub_courts") as any).insert(rows);
