@@ -432,9 +432,9 @@ export default function CourtDetail() {
 
   // Rain reset guardrail: check weather for new precipitation
   const { data: weatherData } = useQuery({
-    queryKey: ["weather-check", court?.lat, court?.lon],
+    queryKey: ["weather-check", court?.latitude, court?.longitude],
     queryFn: async () => {
-      if (!court?.lat || !court?.lon) return null;
+      if (!court?.latitude || !court?.longitude) return null;
       const ts = Date.now();
       const res = await fetch(`https://racdnnitrapgqozxctsk.supabase.co/functions/v1/get-weather?t=${ts}`, {
         method: "POST",
@@ -443,12 +443,12 @@ export default function CourtDetail() {
           apikey: SOVEREIGN_ANON,
           Authorization: `Bearer ${SOVEREIGN_ANON}`,
         },
-        body: JSON.stringify({ lat: court.lat, lon: court.lon, t: ts }),
+        body: JSON.stringify({ lat: court.latitude, lon: court.longitude, t: ts }),
       });
       return res.ok ? await res.json() : null;
     },
-    enabled: !!court?.lat && !!court?.lon,
-    refetchInterval: 300000, // every 5 min
+    enabled: !!court?.latitude && !!court?.longitude,
+    refetchInterval: 300000,
     staleTime: 240000,
   });
 
@@ -498,7 +498,7 @@ export default function CourtDetail() {
             <h1 className="font-bold text-sm truncate">{court.name}</h1>
             <div className="flex items-center gap-1 mt-0.5">
               <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              <p className="text-xs text-muted-foreground truncate">{court.address}</p>
+              <p className="text-xs text-muted-foreground truncate">{court.location}</p>
             </div>
           </div>
           <button onClick={() => navigate(`/court/${id}/admin`)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" aria-label="Facility Setup">
