@@ -211,7 +211,7 @@ export default function CourtDetail() {
             <h1 className="font-bold text-sm truncate">{court.name}</h1>
             <div className="flex items-center gap-1 mt-0.5">
               <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              <p className="text-xs text-muted-foreground truncate">{court.location}</p>
+              <p className="text-xs text-muted-foreground truncate">{court.address}</p>
             </div>
           </div>
         </div>

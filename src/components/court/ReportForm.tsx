@@ -51,7 +51,7 @@ export default function ReportForm({
   const isManualEntry = !weather && !!weatherError && !weatherLoading;
 
   useEffect(() => {
-    if (!court.latitude || !court.longitude) {
+    if (!court.lat || !court.lon) {
       setWeatherError("No coordinates for this court");
       return;
     }
@@ -64,7 +64,7 @@ export default function ReportForm({
         apikey: SOVEREIGN_ANON,
         Authorization: `Bearer ${SOVEREIGN_ANON}`,
       },
-      body: JSON.stringify({ lat: court.latitude, lon: court.longitude, t: ts }),
+      body: JSON.stringify({ lat: court.lat, lon: court.lon, t: ts }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -76,7 +76,7 @@ export default function ReportForm({
       })
       .catch(() => setWeatherError("Could not fetch weather"))
       .finally(() => setWeatherLoading(false));
-  }, [court.latitude, court.longitude]);
+  }, [court.lat, court.lon]);
 
   // Derive effective rainfall from category
   const getEffectiveRainfall = (): number | null => {
