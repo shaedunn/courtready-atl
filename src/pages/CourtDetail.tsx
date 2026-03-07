@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings } from "lucide-react";
-import { supabase, type SovereignCourt, type Observation, SOVEREIGN_ANON, getDisplayName, setDisplayName } from "@/lib/supabase";
+import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
@@ -508,17 +508,11 @@ export default function CourtDetail() {
     queryKey: ["weather-check", court?.latitude, court?.longitude],
     queryFn: async () => {
       if (!court?.latitude || !court?.longitude) return null;
-      const ts = Date.now();
-      const res = await fetch(`https://racdnnitrapgqozxctsk.supabase.co/functions/v1/get-weather?t=${ts}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SOVEREIGN_ANON,
-          Authorization: `Bearer ${SOVEREIGN_ANON}`,
-        },
-        body: JSON.stringify({ lat: court.latitude, lon: court.longitude, t: ts }),
-      });
-      return res.ok ? await res.json() : null;
+      try {
+        return await fetchWeather(court.latitude, court.longitude);
+      } catch {
+        return null;
+      }
     },
     enabled: !!court?.latitude && !!court?.longitude,
     refetchInterval: 300000,

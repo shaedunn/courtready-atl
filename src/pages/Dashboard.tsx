@@ -190,8 +190,10 @@ export default function Dashboard() {
             <CourtCardSkeleton />
             <CourtCardSkeleton />
           </>
-        ) : filtered.length === 0 ? (
+        ) : courts.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-12">No courts found</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-muted-foreground text-sm py-12">No courts match "{search}"</p>
         ) : (
           <>
             {pinnedCourts.length > 0 && (
