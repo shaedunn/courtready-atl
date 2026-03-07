@@ -22,27 +22,18 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     queryKey: ["sub-courts", courtId],
     queryFn: async () => {
       console.log("Fetching for Facility:", courtId);
-      const facilityQuery = await (supabase.from("sub_courts") as any)
+      const { data, error } = await (supabase.from("sub_courts") as any)
         .select("*")
         .eq("facility_id", courtId)
         .order("court_number");
 
-      if (!facilityQuery.error) {
-        console.log("Raw Data Received:", facilityQuery.data ?? []);
-        return (facilityQuery.data ?? []) as SubCourt[];
-      }
-
-      const { data, error } = await supabase
-        .from("sub_courts")
-        .select("*")
-        .eq("court_id", courtId)
-        .order("court_number");
       if (error) {
         console.error(`[SubCourtEditor] Query error:`, error);
         throw error;
       }
+
       console.log("Raw Data Received:", data ?? []);
-      return data as unknown as SubCourt[];
+      return (data ?? []) as SubCourt[];
     },
   });
 
