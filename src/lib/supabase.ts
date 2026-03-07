@@ -1,12 +1,42 @@
-// Re-export the Lovable Cloud Supabase client for all DB operations.
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
-// Runtime verification — confirms the build has the correct backend URL
-console.info("CourtReady backend:", import.meta.env.VITE_SUPABASE_URL);
+// ---------------------------------------------------------------------------
+// Self-healing Supabase client
+// Derives the correct project URL from the API key's JWT payload so the app
+// is immune to stale VITE_SUPABASE_URL deploy secrets.
+// ---------------------------------------------------------------------------
 
-export { supabase };
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
-// Sub-court row type aligned to facility_id schema
+function deriveUrlFromKey(key: string): string {
+  try {
+    const payload = JSON.parse(atob(key.split(".")[1]));
+    return `https://${payload.ref}.supabase.co`;
+  } catch {
+    // Fallback to env var if JWT decode fails (should never happen)
+    return import.meta.env.VITE_SUPABASE_URL as string;
+  }
+}
+
+const derivedUrl = deriveUrlFromKey(supabaseKey);
+
+// Log for verification during pilot
+console.info("CourtReady backend (env):", import.meta.env.VITE_SUPABASE_URL);
+console.info("CourtReady backend (derived / active):", derivedUrl);
+
+export const supabase = createClient<Database>(derivedUrl, supabaseKey, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Re-exported types & helpers (unchanged)
+// ---------------------------------------------------------------------------
+
 export type SubCourtRow = {
   id: string;
   facility_id: string;
@@ -18,7 +48,6 @@ export type SubCourtRow = {
   created_at: string;
 };
 
-// Court type — matches Lovable Cloud schema
 export type SovereignCourt = {
   id: string;
   created_at: string;
@@ -33,7 +62,6 @@ export type SovereignCourt = {
   drainage: number;
 };
 
-// Observation type for status verifications
 export type Observation = {
   id: string;
   court_id: string;
@@ -43,7 +71,6 @@ export type Observation = {
   created_at: string;
 };
 
-// localStorage key for user display name
 const DISPLAY_NAME_KEY = "courtready-display-name";
 
 export function getDisplayName(): string {
@@ -54,7 +81,6 @@ export function setDisplayName(name: string) {
   localStorage.setItem(DISPLAY_NAME_KEY, name.trim());
 }
 
-// Helper to call the get-weather edge function via the unified client
 export async function fetchWeather(lat: number, lon: number) {
   const { data, error } = await supabase.functions.invoke("get-weather", {
     body: { lat, lon, t: Date.now() },

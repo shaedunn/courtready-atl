@@ -1,31 +1,54 @@
 
+Goal: remove any chance of stale weather responses, expose the exact payload shape, and persist every weather call to a backend cache table.
 
-## JWT Self-Healing Fix + Pilot-Critical Verification
+What I verified in the current code/runtime:
+- The app is already calling the live backend function via `supabase.functions.invoke("get-weather")` (no local `/functions/get-weather` route found).
+- Current function response shape (live call):
+  `{"description":"scattered clouds","humidity":88,"icon":"03n","rain_1h":0,"temp":59.83,"wind_speed":0}`
+- There is no `weather_cache` table in the database right now.
+- `get-weather` currently does not write to the database at all (no upsert logic exists).
 
-### Root Cause
-The `VITE_SUPABASE_URL` environment variable is being overridden at build time by a stale deploy secret containing the old project URL. The code and `.env` are correct, but the build injects the wrong value.
+Implementation plan:
 
-### Fix: Derive URL from API Key JWT
+1) Add a `weather_cache` table (schema migration)
+- Create `public.weather_cache` with fields like:
+  - `id` uuid PK
+  - `lat` double precision not null
+  - `lon` double precision not null
+  - `cache_key` text not null unique (derived from normalized lat/lon)
+  - `temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`
+  - `raw_payload` jsonb not null
+  - `last_requested_at` timestamptz not null default now()
+  - `updated_at` timestamptz not null default now()
+- Enable RLS and keep table write-protected from clients (no public insert/update policies), so only backend function writes.
 
-**`src/lib/supabase.ts`** — Replace the re-export of the auto-generated client with a self-healing client that decodes the `ref` from the JWT API key:
-- Decode the middle segment of `VITE_SUPABASE_PUBLISHABLE_KEY` (base64 JWT payload)
-- Extract `payload.ref` → construct `https://${ref}.supabase.co`
-- Create client with `createClient(derivedUrl, key)` — immune to URL secret drift
-- Log both the env URL and derived URL for verification
+2) Update `get-weather` edge function to always write on every request
+- Parse cache-bust token from query `t` and/or body `t`.
+- Call OpenWeather with an added nonce param (e.g. `&_=${t || Date.now()}`) and `Cache-Control: no-store` request header.
+- Build normalized response object (`temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`).
+- Initialize backend client inside function with server credentials and perform `upsert` into `weather_cache` using `cache_key` conflict target.
+- Always update `last_requested_at` + `updated_at` so each function call leaves an auditable write.
 
-**`src/components/SplashScreen.tsx`** — Change import from `@/integrations/supabase/client` to `@/lib/supabase` so the splash screen prefetch also uses the self-healing client.
+3) Update frontend invocations to include timestamp cache-bust
+- `src/components/court/ReportForm.tsx`:
+  - change to `supabase.functions.invoke(\`get-weather?t=${Date.now()}\`, { body: { lat, lon, t: Date.now() } })`
+- `src/components/SplashScreen.tsx`:
+  - same timestamped invoke pattern for prefetch call
+- Keep existing UX behavior (weather badge + error states).
 
-### Pilot-Critical Items — Already Locked In (Verification)
+4) Expose exact JSON received for debugging
+- Add temporary debug logging in `ReportForm` (or guarded dev-only panel) to print/display the exact JSON returned from the function before any transformation.
+- Add function-side `console.log` for request coordinates and normalized payload to make logs useful.
 
-1. **Saturated Air Rule**: `getCourtStatus()` in `courts.ts` returns `"caution"` when humidity >90%. `calculateDryTime()` applies 3.0x multiplier and 180-min floor. `StatusCard` in `CourtDetail.tsx` shows "Saturated Air - Drying Paused" with destructive styling. All confirmed in current code.
+5) Validate end-to-end after implementation
+- Trigger weather fetch from `/court/leslie-beach-club`.
+- Confirm network requests include `?t=<timestamp>`.
+- Confirm function response JSON matches displayed/debugged payload.
+- Run read query:
+  - `select cache_key, temp, humidity, wind_speed, last_requested_at, updated_at from public.weather_cache order by updated_at desc limit 10;`
+- Re-fetch immediately and verify `updated_at` changes on each call.
 
-2. **Moss Hazard Banner**: `CourtDetail.tsx` lines 579-587 already query `subCourts` filtering on `hazard_description` and render red `ShieldAlert` banners per court number. Will work for Huntley Hills Court 2 once the connection is restored.
-
-3. **Pilot Ticker**: `PilotTicker` component in `Dashboard.tsx` lines 95-138 fetches latest 3 reports + 3 observations, sorts by time, displays with `animate-scroll-x`. Active and pulling from both tables.
-
-4. **`facility_id` Convention**: All `sub_courts` queries in `CourtDetail.tsx` and `SubCourtEditor.tsx` use `.eq("facility_id", ...)`. No deviation.
-
-### Files Modified
-- `src/lib/supabase.ts` — self-healing client from JWT
-- `src/components/SplashScreen.tsx` — import fix
-
+Technical details:
+- No changes to generated Supabase client file (`src/integrations/supabase/client.ts`), per platform constraints.
+- This approach keeps weather reads public while restricting cache-table writes to backend logic only.
+- If you want per-court cache rows instead of per-lat/lon rows, I can switch `cache_key` to `court_id` in the same implementation pass.
