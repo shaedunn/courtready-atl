@@ -185,6 +185,23 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
                 <label className="text-[10px] text-destructive flex items-center gap-1">
                   <ShieldAlert className="w-3 h-3" /> Safety Hazard
                 </label>
+                <div className="flex flex-wrap gap-1 mb-1">
+                  {[
+                    "Slippery Moss/Algae spots",
+                    "Debris/Acorns on baseline",
+                    "Standing water in bird-bath",
+                    "Cracked surface/Trip hazard",
+                  ].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setHazardVal((prev) => prev ? `${prev}; ${suggestion}` : suggestion)}
+                      className="text-[10px] px-2 py-0.5 rounded-full border border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      + {suggestion}
+                    </button>
+                  ))}
+                </div>
                 <Textarea
                   value={hazardVal}
                   onChange={(e) => setHazardVal(e.target.value)}
