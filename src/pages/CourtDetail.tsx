@@ -205,8 +205,8 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
             </span>
           )}
           <Badge variant="outline" className="text-[10px] px-2 py-0.5 gap-1.5 border-border">
-            <span className={`w-2 h-2 rounded-full ${config.color} inline-block`} />
-            {config.label}
+            <span className={`w-2 h-2 rounded-full ${displayColor} inline-block`} />
+            {displayLabel}
           </Badge>
         </div>
       </div>
