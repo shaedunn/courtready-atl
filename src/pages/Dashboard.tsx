@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Droplets, MapPin } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Search, Droplets, MapPin, Pin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -7,6 +7,20 @@ import type { Tables } from "@/integrations/supabase/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Report = Tables<"reports">;
+
+const PINNED_KEY = "courtready-pinned";
+
+function getPinnedIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(PINNED_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function setPinnedIds(ids: string[]) {
+  localStorage.setItem(PINNED_KEY, JSON.stringify(ids));
+}
 
 function getStatusColor(report: Report | null) {
   if (!report) return "bg-muted-foreground/30";
@@ -46,9 +60,62 @@ function CourtCardSkeleton() {
   );
 }
 
+function CourtCard({
+  court,
+  report,
+  isPinned,
+  onTogglePin,
+  onNavigate,
+}: {
+  court: SovereignCourt;
+  report: Report | null;
+  isPinned: boolean;
+  onTogglePin: (id: string) => void;
+  onNavigate: (id: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <button
+        onClick={() => onNavigate(court.id)}
+        className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-primary/30 transition-all active:scale-[0.98] card-glow"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-sm text-card-foreground truncate">{court.name}</h2>
+            <div className="flex items-center gap-1 mt-1">
+              <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">{court.address}</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(report)} status-pulse`} />
+            <span className="text-[11px] font-mono text-muted-foreground">{getStatusText(report)}</span>
+          </div>
+        </div>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onTogglePin(court.id); }}
+        className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-secondary transition-colors z-[1]"
+        aria-label={isPinned ? "Unpin court" : "Pin court"}
+      >
+        <Pin className={`w-3.5 h-3.5 transition-colors ${isPinned ? "text-primary fill-primary" : "text-muted-foreground/40"}`} />
+      </button>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [search, setSearch] = useState("");
+  const [pinnedIds, _setPinnedIds] = useState<string[]>(getPinnedIds);
   const navigate = useNavigate();
+
+  const togglePin = useCallback((id: string) => {
+    _setPinnedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id];
+      setPinnedIds(next);
+      return next;
+    });
+  }, []);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<SovereignCourt[]>({
     queryKey: ["courts"],
@@ -84,6 +151,10 @@ export default function Dashboard() {
       c.address.toLowerCase().includes(search.toLowerCase())
   );
 
+  const pinnedCourts = filtered.filter((c) => pinnedIds.includes(c.id));
+  const unpinnedCourts = filtered.filter((c) => !pinnedIds.includes(c.id));
+  const handleNavigate = (id: string) => navigate(`/court/${id}`);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4 pt-safe">
@@ -117,30 +188,22 @@ export default function Dashboard() {
         ) : filtered.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-12">No courts found</p>
         ) : (
-          filtered.map((court) => {
-            const report = latestReports[court.id] || null;
-            return (
-              <button
-                key={court.id}
-                onClick={() => navigate(`/court/${court.id}`)}
-                className="w-full text-left bg-card rounded-lg p-4 border border-border hover:border-primary/30 transition-all active:scale-[0.98] card-glow"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="font-semibold text-sm text-card-foreground truncate">{court.name}</h2>
-                    <div className="flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs text-muted-foreground truncate">{court.address}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(report)} status-pulse`} />
-                    <span className="text-[11px] font-mono text-muted-foreground">{getStatusText(report)}</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })
+          <>
+            {pinnedCourts.length > 0 && (
+              <>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-1">Pinned</p>
+                {pinnedCourts.map((court) => (
+                  <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} isPinned onTogglePin={togglePin} onNavigate={handleNavigate} />
+                ))}
+                {unpinnedCourts.length > 0 && (
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-3">All Courts</p>
+                )}
+              </>
+            )}
+            {unpinnedCourts.map((court) => (
+              <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} isPinned={false} onTogglePin={togglePin} onNavigate={handleNavigate} />
+            ))}
+          </>
         )}
       </main>
     </div>
