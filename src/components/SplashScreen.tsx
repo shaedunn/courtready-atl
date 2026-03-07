@@ -11,16 +11,16 @@ export default function SplashScreen({ onComplete, queryClient }: SplashScreenPr
   const [fadingOut, setFadingOut] = useState(false);
 
   useEffect(() => {
-    // Pre-fetch weather data for Leslie Beach Club (pilot phase)
-    // TODO: Metro View - loop through anchor clubs (Buckhead, Decatur, Marietta)
     const ts = Date.now();
     fetch(`https://racdnnitrapgqozxctsk.supabase.co/functions/v1/get-weather?t=${ts}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw" },
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
+      },
       body: JSON.stringify({ lat: 33.8195, lon: -84.3397, t: ts }),
-    });
+    }).catch(() => {});
 
-    // Pre-warm React Query cache
     queryClient.prefetchQuery({
       queryKey: ["courts"],
       queryFn: async () => {
@@ -61,20 +61,14 @@ export default function SplashScreen({ onComplete, queryClient }: SplashScreenPr
         fadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >
-      <img
-        src="/splash-bg.jpeg"
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover object-center"
-      />
+      <img src="/splash-bg.jpeg" alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="absolute inset-0 flex items-center justify-center">
         <img
           src="/cr-logo.png"
           alt="CourtReady"
           className="w-48 h-48 object-contain opacity-0"
-          style={{
-            animation: "splash-logo-in 1s ease-out 0.3s forwards",
-          }}
+          style={{ animation: "splash-logo-in 1s ease-out 0.3s forwards" }}
         />
       </div>
     </div>

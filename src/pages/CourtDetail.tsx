@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, CloudRain, Send, Sparkles } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 import ReportForm from "@/components/court/ReportForm";
 
-type Court = Tables<"courts">;
 type Report = Tables<"reports">;
 
 function StatusCard({ report }: { report: Report | null }) {
@@ -51,13 +50,13 @@ function StatusCard({ report }: { report: Report | null }) {
   );
 }
 
-function CaptainsLog({ court }: { court: Court }) {
+function CaptainsLog({ court }: { court: SovereignCourt }) {
   const [logText, setLogText] = useState("");
   const [logAuthor, setLogAuthor] = useState("");
   const queryClient = useQueryClient();
 
   const { data: logs = [] } = useQuery({
-    queryKey: ["court-logs", court.slug],
+    queryKey: ["court-logs", court.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("court_logs")
@@ -81,7 +80,7 @@ function CaptainsLog({ court }: { court: Court }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["court-logs", court.slug] });
+      queryClient.invalidateQueries({ queryKey: ["court-logs", court.id] });
       setLogText("");
     },
   });
@@ -126,12 +125,12 @@ export default function CourtDetail() {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
 
-  const { data: court, isLoading } = useQuery({
+  const { data: court, isLoading } = useQuery<SovereignCourt>({
     queryKey: ["court", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("courts").select("*").eq("slug", id!).single();
+      const { data, error } = await supabase.from("courts").select("*").eq("id", id!).single();
       if (error) throw error;
-      return data;
+      return data as unknown as SovereignCourt;
     },
     enabled: !!id,
   });
@@ -179,7 +178,7 @@ export default function CourtDetail() {
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-sm truncate">{court.name}</h1>
-            <p className="text-xs text-muted-foreground">{court.location}</p>
+            <p className="text-xs text-muted-foreground">{court.address}</p>
           </div>
         </div>
       </header>

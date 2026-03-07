@@ -1,13 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, Cloud, Thermometer, Droplets, Wind, AlertTriangle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { calculateDryTime, HINDRANCE_OPTIONS, type Hindrance } from "@/lib/courts";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import type { Tables } from "@/integrations/supabase/types";
-
-type Court = Tables<"courts">;
 
 type WeatherData = {
   temp: number;
@@ -20,7 +17,7 @@ export default function ReportForm({
   court,
   onSubmitted,
 }: {
-  court: Court;
+  court: SovereignCourt;
   onSubmitted: () => void;
 }) {
   const [rainfall, setRainfall] = useState("");
@@ -31,27 +28,20 @@ export default function ReportForm({
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  // Court-level defaults with captain override
-  const [sunExposure, setSunExposure] = useState(
-    (court as any).sun_exposure ?? 0.75
-  );
-  const [drainage, setDrainage] = useState(
-    (court as any).drainage ?? 0.5
-  );
+  const [sunExposure, setSunExposure] = useState(court.sun_exposure_rating ?? 0.75);
+  const [drainage, setDrainage] = useState(court.drainage_rating ?? 0.5);
 
-  // Weather auto-fetch
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
 
-  // Manual weather entry (fallback when API is down)
   const [manualTemp, setManualTemp] = useState("");
   const [manualHumidity, setManualHumidity] = useState("");
   const [manualWind, setManualWind] = useState("");
   const isManualEntry = !weather && !!weatherError && !weatherLoading;
 
   useEffect(() => {
-    if (!court.latitude || !court.longitude) {
+    if (!court.lat || !court.lon) {
       setWeatherError("No coordinates for this court");
       return;
     }
@@ -64,11 +54,10 @@ export default function ReportForm({
         "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
         "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
       },
-      body: JSON.stringify({ lat: court.latitude, lon: court.longitude, t: ts }),
+      body: JSON.stringify({ lat: court.lat, lon: court.lon, t: ts }),
     })
       .then(async (res) => {
         const data = await res.json();
-        console.log("[ReportForm] get-weather response:", JSON.stringify(data));
         if (!res.ok || !data?.temp) {
           setWeatherError("Could not fetch weather");
         } else {
@@ -77,9 +66,8 @@ export default function ReportForm({
       })
       .catch(() => setWeatherError("Could not fetch weather"))
       .finally(() => setWeatherLoading(false));
-  }, [court.latitude, court.longitude]);
+  }, [court.lat, court.lon]);
 
-  // Resolve effective weather: live or manual
   const getEffectiveWeather = (): { temp: number; humidity: number; wind_speed: number; description: string; isManual: boolean } | null => {
     if (weather) {
       return { temp: weather.temp, humidity: weather.humidity, wind_speed: weather.wind_speed, description: weather.description ?? "Live", isManual: false };
@@ -104,7 +92,7 @@ export default function ReportForm({
       if (isNaN(rain) || rain < 0) throw new Error("Invalid rainfall");
 
       const ew = getEffectiveWeather();
-      if (!ew) throw new Error("Weather data required — enter manually or wait for API");
+      if (!ew) throw new Error("Weather data required");
 
       const dryTime = calculateDryTime(
         rain, squeegee, ew.temp, ew.humidity, ew.wind_speed,
@@ -133,7 +121,7 @@ export default function ReportForm({
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["latest-report", court.slug] });
+      queryClient.invalidateQueries({ queryKey: ["latest-report", court.id] });
       queryClient.invalidateQueries({ queryKey: ["latest-reports"] });
       onSubmitted();
     },
@@ -155,7 +143,6 @@ export default function ReportForm({
     });
   };
 
-  // Live preview dry time
   const previewDryTime = (() => {
     const rain = parseFloat(rainfall);
     const ew = getEffectiveWeather();
@@ -170,94 +157,46 @@ export default function ReportForm({
 
   return (
     <div className="bg-card rounded-lg p-5 border border-border space-y-4 card-glow">
-      <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
-        Captain's Report
-      </h3>
+      <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Captain's Report</h3>
 
-      {/* Weather badge */}
       <div className="flex flex-wrap gap-2">
-        {weatherLoading && (
-          <Badge variant="secondary" className="animate-pulse">
-            <Cloud className="w-3 h-3 mr-1" /> Fetching weather…
-          </Badge>
-        )}
-        {isManualEntry && !manualReady && (
-          <Badge variant="destructive">
-            <AlertTriangle className="w-3 h-3 mr-1" /> Offline — manual entry below
-          </Badge>
-        )}
-        {isManualEntry && manualReady && (
-          <Badge variant="outline" className="border-accent text-accent-foreground">
-            <AlertTriangle className="w-3 h-3 mr-1" /> Manual Entry
-          </Badge>
-        )}
+        {weatherLoading && <Badge variant="secondary" className="animate-pulse"><Cloud className="w-3 h-3 mr-1" /> Fetching weather…</Badge>}
+        {isManualEntry && !manualReady && <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" /> Offline — manual entry below</Badge>}
+        {isManualEntry && manualReady && <Badge variant="outline" className="border-accent text-accent-foreground"><AlertTriangle className="w-3 h-3 mr-1" /> Manual Entry</Badge>}
         {weather && (
           <>
-            <Badge variant="secondary">
-              <Thermometer className="w-3 h-3 mr-1" /> {Math.round(weather.temp)}°F
-            </Badge>
-            <Badge variant="secondary">
-              <Droplets className="w-3 h-3 mr-1" /> {Math.round(weather.humidity)}%
-            </Badge>
-            <Badge variant="secondary">
-              <Wind className="w-3 h-3 mr-1" /> {Math.round(weather.wind_speed)} mph
-            </Badge>
+            <Badge variant="secondary"><Thermometer className="w-3 h-3 mr-1" /> {Math.round(weather.temp)}°F</Badge>
+            <Badge variant="secondary"><Droplets className="w-3 h-3 mr-1" /> {Math.round(weather.humidity)}%</Badge>
+            <Badge variant="secondary"><Wind className="w-3 h-3 mr-1" /> {Math.round(weather.wind_speed)} mph</Badge>
           </>
         )}
       </div>
 
-      {/* Manual weather inputs when offline */}
       {isManualEntry && (
         <div className="bg-destructive/10 rounded-lg p-3 space-y-3 border border-destructive/20">
-          <p className="text-xs font-medium text-destructive">
-            Weather API offline — enter conditions manually
-          </p>
+          <p className="text-xs font-medium text-destructive">Weather API offline — enter conditions manually</p>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-[10px] text-muted-foreground block mb-1">Temp (°F)</label>
-              <input
-                type="number"
-                value={manualTemp}
-                onChange={(e) => setManualTemp(e.target.value)}
-                placeholder="73"
-                className={inputClasses}
-              />
+              <input type="number" value={manualTemp} onChange={(e) => setManualTemp(e.target.value)} placeholder="73" className={inputClasses} />
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground block mb-1">Humidity (%)</label>
-              <input
-                type="number"
-                value={manualHumidity}
-                onChange={(e) => setManualHumidity(e.target.value)}
-                placeholder="1"
-                className={inputClasses}
-              />
+              <input type="number" value={manualHumidity} onChange={(e) => setManualHumidity(e.target.value)} placeholder="1" className={inputClasses} />
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground block mb-1">Wind (mph)</label>
-              <input
-                type="number"
-                value={manualWind}
-                onChange={(e) => setManualWind(e.target.value)}
-                placeholder="5"
-                className={inputClasses}
-              />
+              <input type="number" value={manualWind} onChange={(e) => setManualWind(e.target.value)} placeholder="5" className={inputClasses} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Rainfall */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Rainfall (mm)</label>
-        <input
-          type="number" min="0" step="0.5"
-          value={rainfall} onChange={(e) => setRainfall(e.target.value)}
-          placeholder="e.g. 5" className={inputClasses}
-        />
+        <input type="number" min="0" step="0.5" value={rainfall} onChange={(e) => setRainfall(e.target.value)} placeholder="e.g. 5" className={inputClasses} />
       </div>
 
-      {/* Squeegee */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Squeegee Count</label>
         <select value={squeegee} onChange={(e) => setSqueegee(Number(e.target.value) as 0 | 1 | 2)} className={inputClasses}>
@@ -267,7 +206,6 @@ export default function ReportForm({
         </select>
       </div>
 
-      {/* Hindrances */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Physical Hindrances</label>
         <div className="flex flex-wrap gap-2">
@@ -284,7 +222,6 @@ export default function ReportForm({
         </div>
       </div>
 
-      {/* Sun Exposure slider */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-xs text-muted-foreground">Sun Exposure</label>
@@ -293,7 +230,6 @@ export default function ReportForm({
         <Slider value={[sunExposure]} onValueChange={([v]) => setSunExposure(v)} min={0} max={1} step={0.05} />
       </div>
 
-      {/* Drainage slider */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-xs text-muted-foreground">Drainage</label>
@@ -302,7 +238,6 @@ export default function ReportForm({
         <Slider value={[drainage]} onValueChange={([v]) => setDrainage(v)} min={0} max={1} step={0.05} />
       </div>
 
-      {/* Observations */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Abstract Observations</label>
         <textarea value={observations} onChange={(e) => setObservations(e.target.value)}
@@ -310,7 +245,6 @@ export default function ReportForm({
           className={`${inputClasses} resize-none`} />
       </div>
 
-      {/* Photo */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1.5">Photo</label>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
@@ -322,7 +256,6 @@ export default function ReportForm({
         {photo && <img src={photo} alt="Court photo" className="mt-2 rounded-lg w-full h-32 object-cover" />}
       </div>
 
-      {/* Live preview */}
       {previewDryTime !== null && (
         <div className="bg-secondary/50 rounded-lg p-3 text-center">
           <span className="text-xs text-muted-foreground">Estimated dry time: </span>
@@ -330,7 +263,6 @@ export default function ReportForm({
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex gap-2">
         <button onClick={onSubmitted}
           className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-lg text-sm font-medium hover:brightness-110 transition-all">
