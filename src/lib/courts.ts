@@ -36,7 +36,7 @@ function normalizeRating(rating: number): number {
  * Step-Multiplier dry time engine (V1).
  *
  * Base:       60 mins per 0.1" rain → 600 × effectiveRain
- * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×2.5 if >90%
+ * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×3.0 if >90% (saturated air)
  * Humidity Floor: if >90%, minimum 120 minutes (evaporation effectively zero)
  * Wind:       ×1.3 if wind < 3 mph
  * Drainage:   divide by normalized drainage (1-5 → 0.2-1.0)
