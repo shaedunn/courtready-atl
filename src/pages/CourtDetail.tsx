@@ -586,6 +586,18 @@ export default function CourtDetail() {
           </div>
         )}
 
+        {subCourts.length === 0 && (
+          <button
+            onClick={() => forceCreateSubCourtsMutation.mutate()}
+            disabled={forceCreateSubCourtsMutation.isPending}
+            className="w-full bg-primary text-primary-foreground border border-primary/40 font-extrabold py-4 rounded-xl text-sm tracking-wide shadow-lg shadow-primary/35 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60"
+          >
+            {forceCreateSubCourtsMutation.isPending
+              ? "Creating Sub-Courts..."
+              : "Force-Create 4 Sub-Courts for This Facility"}
+          </button>
+        )}
+
         {!showForm && (
           <button onClick={() => setShowForm(true)}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-lg text-sm tracking-wide hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
