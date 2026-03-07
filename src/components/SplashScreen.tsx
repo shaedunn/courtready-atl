@@ -11,17 +11,7 @@ export default function SplashScreen({ onComplete, queryClient }: SplashScreenPr
   const [fadingOut, setFadingOut] = useState(false);
 
   useEffect(() => {
-    const ts = Date.now();
-    fetch(`https://racdnnitrapgqozxctsk.supabase.co/functions/v1/get-weather?t=${ts}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhY2Rubml0cmFwZ3FvenhjdHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3Mjk2ODMsImV4cCI6MjA4ODMwNTY4M30.2gVst0fWw5L6gUlO84cxveqFeZ97cW7_7W4CL00ELsw",
-      },
-      body: JSON.stringify({ lat: 33.8195, lon: -84.3397, t: ts }),
-    }).catch(() => {});
-
+    // Prefetch courts and reports — weather is fetched per-court on demand
     queryClient.prefetchQuery({
       queryKey: ["courts"],
       queryFn: async () => {

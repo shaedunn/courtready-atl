@@ -1,11 +1,21 @@
-export type Hindrance = "none" | "bird_baths" | "surface_cracks" | "debris";
+export type Hindrance = "none" | "bird_baths" | "surface_cracks";
 
 export const HINDRANCE_OPTIONS: { value: Hindrance; label: string; multiplier: number }[] = [
   { value: "none", label: "None", multiplier: 1.0 },
   { value: "bird_baths", label: "Bird Baths / Depressions", multiplier: 1.5 },
   { value: "surface_cracks", label: "Surface Cracks / Seepage", multiplier: 2.0 },
-  { value: "debris", label: "Debris / Leaves", multiplier: 1.2 },
 ];
+
+// Rainfall categories (inches)
+export const RAINFALL_CATEGORIES = [
+  { value: "mist", label: "Mist/Drizzle", amount: 0.05 },
+  { value: "light", label: "Light Rain", amount: 0.1, description: "Ground wet, no puddles" },
+  { value: "steady", label: "Steady Rain", amount: 0.25, description: "Puddles forming" },
+  { value: "heavy", label: "Heavy/Downpour", amount: 0.5, description: "Courts flooded" },
+  { value: "custom", label: "Custom", amount: null },
+] as const;
+
+export type RainfallCategory = (typeof RAINFALL_CATEGORIES)[number]["value"];
 
 // Squeegee reduction factors
 const SQUEEGEE_FACTOR: Record<number, number> = {
@@ -55,4 +65,17 @@ export function calculateDryTime(
         );
 
   return Math.round(Math.max(0, baseDryMinutes * hindranceMultiplier));
+}
+
+/**
+ * Format dry time as human-readable string.
+ * < 60 → "X minutes"
+ * ≥ 60 → "X hours and Y minutes" (omits "and 0 minutes" if exact)
+ */
+export function formatDryTime(minutes: number): string {
+  if (minutes < 60) return `${minutes} minutes`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (m === 0) return `${h} hour${h > 1 ? "s" : ""}`;
+  return `${h} hour${h > 1 ? "s" : ""} and ${m} minute${m > 1 ? "s" : ""}`;
 }

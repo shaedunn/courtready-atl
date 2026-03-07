@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, CloudRain, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin } from "lucide-react";
 import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
+import { formatDryTime } from "@/lib/courts";
+import { Skeleton } from "@/components/ui/skeleton";
 import ReportForm from "@/components/court/ReportForm";
 
 type Report = Tables<"reports">;
@@ -12,6 +14,8 @@ function StatusCard({ report }: { report: Report | null }) {
   const dryTime = report
     ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
     : null;
+
+  const roundedDry = dryTime !== null ? Math.round(dryTime) : null;
 
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow">
@@ -23,21 +27,20 @@ function StatusCard({ report }: { report: Report | null }) {
           </span>
         )}
       </div>
-      {dryTime !== null && dryTime > 0 ? (
+      {roundedDry !== null && roundedDry > 0 ? (
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
             <Clock className="w-5 h-5 text-court-amber" />
-            <span className="text-3xl font-bold font-mono text-court-amber">{Math.round(dryTime)}</span>
-            <span className="text-sm text-muted-foreground">min</span>
+            <span className="text-2xl font-bold font-mono text-court-amber">{formatDryTime(roundedDry)}</span>
           </div>
           <p className="text-xs text-muted-foreground">Estimated time to playable</p>
           <div className="flex gap-3 text-[11px] text-muted-foreground justify-center pt-1 flex-wrap">
-            <span>Rain: {report!.rainfall}mm</span>
+            <span>Rain: {report!.rainfall}"</span>
             <span>·</span>
             <span>Squeegees: {report!.squeegee_count}</span>
           </div>
         </div>
-      ) : dryTime !== null && dryTime <= 0 ? (
+      ) : roundedDry !== null && roundedDry <= 0 ? (
         <div className="text-center space-y-1">
           <Sparkles className="w-6 h-6 text-primary mx-auto" />
           <p className="text-lg font-bold text-primary text-glow">Courts are Dry</p>
@@ -46,6 +49,21 @@ function StatusCard({ report }: { report: Report | null }) {
       ) : (
         <p className="text-center text-sm text-muted-foreground py-2">No recent reports</p>
       )}
+    </div>
+  );
+}
+
+function StatusCardSkeleton() {
+  return (
+    <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-12" />
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-3 w-40" />
+      </div>
     </div>
   );
 }
@@ -155,8 +173,21 @@ export default function CourtDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-4">
+          <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
+            <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-secondary transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+          </div>
+        </header>
+        <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
+          <StatusCardSkeleton />
+        </main>
       </div>
     );
   }
@@ -178,7 +209,10 @@ export default function CourtDetail() {
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-sm truncate">{court.name}</h1>
-            <p className="text-xs text-muted-foreground">{court.address}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+              <p className="text-xs text-muted-foreground truncate">{court.location}</p>
+            </div>
           </div>
         </div>
       </header>

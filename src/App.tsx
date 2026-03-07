@@ -9,7 +9,15 @@ import CourtDetail from "./pages/CourtDetail";
 import NotFound from "./pages/NotFound";
 import SplashScreen from "./components/SplashScreen";
 
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,   // 5 minutes
+      gcTime: 10 * 60 * 1000,     // 10 minutes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
