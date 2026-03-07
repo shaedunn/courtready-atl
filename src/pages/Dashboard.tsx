@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle } from "lucide-react";
-import OnboardingModal from "@/components/OnboardingModal";
+import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle, Shield } from "lucide-react";
+import OnboardingModal, { isContributor } from "@/components/OnboardingModal";
 import { useNavigate } from "react-router-dom";
 import { supabase, type SovereignCourt, type Observation } from "@/lib/supabase";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -153,6 +153,7 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [pinnedIds, _setPinnedIds] = useState<string[]>(getPinnedIds);
   const hasVisitedInstructions = localStorage.getItem("courtready-visited-instructions") === "true";
+  const isCaptain = isContributor();
   const navigate = useNavigate();
 
   const togglePin = useCallback((id: string) => {
@@ -229,6 +230,11 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <Droplets className="w-5 h-5 text-primary" />
               <h1 className="text-lg font-bold tracking-tight">CourtReady <span className="text-primary">ATL</span></h1>
+              {isCaptain && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                  <Shield className="w-3 h-3" /> Captain
+                </span>
+              )}
             </div>
             <button
               onClick={() => navigate("/instructions")}

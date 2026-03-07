@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert } from "lucide-react";
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
@@ -11,6 +11,8 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import ReportForm from "@/components/court/ReportForm";
 import SubCourtEditor from "@/components/court/SubCourtEditor";
+import GuidedTour, { shouldShowTour } from "@/components/GuidedTour";
+import CelebrationOverlay, { shouldCelebrate, markCelebrated } from "@/components/CelebrationOverlay";
 import type { SubCourtRow } from "@/types/supabase";
 
 type Report = Tables<"reports">;
@@ -609,6 +611,16 @@ export default function CourtDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  // Show tour after data loads
+  useEffect(() => {
+    if (shouldShowTour() && !isLoading) {
+      const t = setTimeout(() => setShowTour(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const { data: subCourts } = useQuery<SubCourtRow[]>({
     queryKey: ["sub-courts", id],
@@ -776,7 +788,9 @@ export default function CourtDetail() {
           </div>
         ))}
 
-        <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={weatherData?.rain_1h > 0} />
+        <div data-tour="pulse">
+          <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={weatherData?.rain_1h > 0} />
+        </div>
 
         {weatherData?.hourly && weatherData.hourly.length > 0 && (
           <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
@@ -810,13 +824,31 @@ export default function CourtDetail() {
           </button>
         )}
 
-        {showForm && <ReportForm court={court} onSubmitted={() => setShowForm(false)} />}
+        {showForm && (
+          <ReportForm
+            court={court}
+            onSubmitted={() => {
+              setShowForm(false);
+              if (shouldCelebrate()) {
+                markCelebrated();
+                setShowCelebration(true);
+              }
+            }}
+          />
+        )}
 
         {/* Inline Sub-Court Editor */}
-        <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
+        <div data-tour="sub-court-editor">
+          <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
+        </div>
 
-        <CaptainsLog court={court} />
+        <div data-tour="hazard-button">
+          <CaptainsLog court={court} />
+        </div>
       </main>
+
+      {showTour && <GuidedTour onComplete={() => setShowTour(false)} />}
+      {showCelebration && <CelebrationOverlay onDone={() => setShowCelebration(false)} />}
     </div>
   );
 }
