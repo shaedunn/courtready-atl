@@ -5,6 +5,7 @@ import { supabase, type SovereignCourt } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import AddCourtModal from "@/components/AddCourtModal";
 import type { SubCourtRow as SubCourt } from "@/types/supabase";
 
 const RATING_LABELS: Record<number, string> = {
@@ -85,6 +86,7 @@ export default function FacilityAdmin() {
   const [bulkSun, setBulkSun] = useState(3);
   const [bulkDrain, setBulkDrain] = useState(3);
   const [newCourtNumbers, setNewCourtNumbers] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
 
   // Sync edit state when subCourts load
   useEffect(() => {
