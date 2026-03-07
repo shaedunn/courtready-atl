@@ -1,7 +1,6 @@
 // Re-export the Lovable Cloud Supabase client for all DB operations.
 // Edge function calls still use the sovereign project URL.
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
 
 export { supabase };
 
