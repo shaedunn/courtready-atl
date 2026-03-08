@@ -779,7 +779,6 @@ export default function CourtDetail() {
         <div data-tour="pulse">
           <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={currentRain1h > 0} forecastScore={forecastNowScore} currentRain1h={currentRain1h} />
         </div>
-        </div>
 
         {weatherData?.hourly && weatherData.hourly.length > 0 && (
           <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
