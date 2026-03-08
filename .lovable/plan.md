@@ -1,113 +1,54 @@
 
+Goal: remove any chance of stale weather responses, expose the exact payload shape, and persist every weather call to a backend cache table.
 
-## "Leslie Beach Pilot" Executive Build
+What I verified in the current code/runtime:
+- The app is already calling the live backend function via `supabase.functions.invoke("get-weather")` (no local `/functions/get-weather` route found).
+- Current function response shape (live call):
+  `{"description":"scattered clouds","humidity":88,"icon":"03n","rain_1h":0,"temp":59.83,"wind_speed":0}`
+- There is no `weather_cache` table in the database right now.
+- `get-weather` currently does not write to the database at all (no upsert logic exists).
 
-Five files changed. No database migrations needed.
+Implementation plan:
 
----
+1) Add a `weather_cache` table (schema migration)
+- Create `public.weather_cache` with fields like:
+  - `id` uuid PK
+  - `lat` double precision not null
+  - `lon` double precision not null
+  - `cache_key` text not null unique (derived from normalized lat/lon)
+  - `temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`
+  - `raw_payload` jsonb not null
+  - `last_requested_at` timestamptz not null default now()
+  - `updated_at` timestamptz not null default now()
+- Enable RLS and keep table write-protected from clients (no public insert/update policies), so only backend function writes.
 
-### 1. `src/lib/courts.ts` — Human Verified Gold State + Unified Truth
+2) Update `get-weather` edge function to always write on every request
+- Parse cache-bust token from query `t` and/or body `t`.
+- Call OpenWeather with an added nonce param (e.g. `&_=${t || Date.now()}`) and `Cache-Control: no-store` request header.
+- Build normalized response object (`temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`).
+- Initialize backend client inside function with server credentials and perform `upsert` into `weather_cache` using `cache_key` conflict target.
+- Always update `last_requested_at` + `updated_at` so each function call leaves an auditable write.
 
-**Add** `"human_verified"` to `CourtStatus` union type.
+3) Update frontend invocations to include timestamp cache-bust
+- `src/components/court/ReportForm.tsx`:
+  - change to `supabase.functions.invoke(\`get-weather?t=${Date.now()}\`, { body: { lat, lon, t: Date.now() } })`
+- `src/components/SplashScreen.tsx`:
+  - same timestamped invoke pattern for prefetch call
+- Keep existing UX behavior (weather badge + error states).
 
-**Add** to `STATUS_CONFIG`:
-```typescript
-human_verified: { color: "bg-amber-400", label: "Human Verified" }
-```
+4) Expose exact JSON received for debugging
+- Add temporary debug logging in `ReportForm` (or guarded dev-only panel) to print/display the exact JSON returned from the function before any transformation.
+- Add function-side `console.log` for request coordinates and normalized payload to make logs useful.
 
-**Update** `getCourtStatus` signature to:
-```typescript
-getCourtStatus(
-  report, latestObservation, currentHumidity, recentRain,
-  forecastScore?: number,
-  currentRain1h?: number
-)
-```
+5) Validate end-to-end after implementation
+- Trigger weather fetch from `/court/leslie-beach-club`.
+- Confirm network requests include `?t=<timestamp>`.
+- Confirm function response JSON matches displayed/debugged payload.
+- Run read query:
+  - `select cache_key, temp, humidity, wind_speed, last_requested_at, updated_at from public.weather_cache order by updated_at desc limit 10;`
+- Re-fetch immediately and verify `updated_at` changes on each call.
 
-**New logic flow** (replaces current):
-1. **Captain's Gold Override** (no expiry): If `latestObservation?.status === "playable"` AND humidity ≤ 90:
-   - Invalidated ONLY if `currentRain1h > 0` (actual rain NOW) OR a report with `rainfall > 0` exists that is newer than the observation
-   - If NOT invalidated → return `"human_verified"`
-2. Humidity > 90 → `"caution"`
-3. **Forecast-driven** (if `forecastScore` provided):
-   - `< 40` → `"wet"` (relabeled "Likely Unplayable")
-   - `40–69` → `"drying"`
-   - `≥ 70` → `"playable"`
-4. **Fallback** (no weather data): existing report-age logic unchanged
-
-**Add** helper `getVerifiedAgoText(createdAt: string): string` → returns "Xh Ym ago" or "just now".
-
-Key rule: **PoP (probability) never invalidates a Captain's verification. Only `rain_1h > 0` does.**
-
----
-
-### 2. `src/pages/Dashboard.tsx` — Unified Truth Badges + Split-Status
-
-**Add queries**:
-- Shared weather query using first court's lat/lon (all Atlanta courts share same weather)
-- Sub-courts query: `supabase.from("sub_courts").select("*")`
-- All observations query (not just latest per court): to count verified sub-courts
-
-**CourtCard changes**:
-- Import `calculatePlayability` from CourtDetail logic (will extract to a shared util or inline)
-- Compute `forecastNowScore` per court using weather hourly data + court drainage
-- Pass `forecastScore` and `currentRain1h` to `getCourtStatus`
-
-**Split-Status logic**:
-- For each facility, cross-reference sub_courts with observations
-- Count sub-courts with valid "playable" observations (not invalidated by rain)
-- If some but not all verified: badge shows `"X/Y Courts Playable"` in gold
-- If all verified: `"Human Verified"` gold badge
-- If none: standard forecast-derived status
-- Show `"Verified by [name] · Xh Ym ago"` subtitle when any verification exists
-
----
-
-### 3. `src/pages/CourtDetail.tsx` — Pass Forecast Score + Gold Ring
-
-**StatusCard**:
-- Compute `forecastNowScore` from `calculatePlayability(hourly, 0, ...)` and pass to `getCourtStatus` along with `currentRain1h`
-- Handle `"human_verified"` status: gold CheckCircle2 icon, show "Verified by [name] · Xh Ym ago"
-
-**PlayabilityForecast**:
-- When status is `human_verified` and physics score < 40: change ring color to gold (`#F59E0B`), insight text → "Captain verified playable [time] ago — overriding physics model."
-
-**Rain reset logic** (line 697): Already uses `weatherData?.rain_1h > 0` — this stays. PoP no longer invalidates.
-
----
-
-### 4. `src/components/SplashScreen.tsx` — Cycling Insights
-
-**Add** rotating insight text at bottom, cycling every 2s:
-- "Consulting the Ghost of Rain..."
-- "Calibrating Atlanta Physics..."
-- "Syncing 3-Hour Forecast..."
-
-Implementation: `useState` index + `setInterval`. Style: `text-white/60 text-xs tracking-wide` with opacity crossfade.
-
-**Logo scale**: Update `splash-logo-in` keyframe from `scale(0.9)` to `scale(0.95)` for subtlety.
-
-Splash already has: 6s minimum, 1s fade-out, saturate(1.25), no logo image, high-contrast CTA. Confirmed clean.
-
----
-
-### 5. `src/index.css` — Keyframe Tweak
-
-Update `splash-logo-in` from `scale(0.9)` → `scale(0.95)`.
-
----
-
-### Data Confirmation
-
-Dashboard fetches exclusively from the `courts` table (line 168). Zero mock data exists. The 11 facilities showing are the seeded records. If 14 are expected, 3 need to be added to the database separately.
-
-### Files Modified
-
-| File | Change |
-|------|--------|
-| `src/lib/courts.ts` | `human_verified` status, rain-only invalidation, `forecastScore` param, `getVerifiedAgoText` |
-| `src/pages/CourtDetail.tsx` | Pass forecast score + rain to status, gold ring override, verified receipt |
-| `src/pages/Dashboard.tsx` | Weather query, forecast-driven badges, split-status "X/Y Courts Playable", gold badge |
-| `src/components/SplashScreen.tsx` | Cycling insight texts |
-| `src/index.css` | Splash keyframe scale tweak |
-
+Technical details:
+- No changes to generated Supabase client file (`src/integrations/supabase/client.ts`), per platform constraints.
+- This approach keeps weather reads public while restricting cache-table writes to backend logic only.
+- If you want per-court cache rows instead of per-lat/lon rows, I can switch `cache_key` to `court_id` in the same implementation pass.

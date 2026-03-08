@@ -4,7 +4,7 @@ import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Drop
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
-import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
+import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG, getVerifiedAgoText } from "@/lib/courts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -169,13 +169,14 @@ function SqueegeeAction({ report, courtId }: { report: Report; courtId: string }
 }
 
 /* ─── Status Card ─── */
-function StatusCard({ report, courtId, latestObservation, currentHumidity, recentRain }: { report: Report | null; courtId: string; latestObservation: Observation | null; currentHumidity?: number | null; recentRain?: boolean }) {
-  const status = getCourtStatus(report, latestObservation, currentHumidity, recentRain);
+function StatusCard({ report, courtId, latestObservation, currentHumidity, recentRain, forecastScore, currentRain1h }: { report: Report | null; courtId: string; latestObservation: Observation | null; currentHumidity?: number | null; recentRain?: boolean; forecastScore?: number | null; currentRain1h?: number | null }) {
+  const status = getCourtStatus(report, latestObservation, currentHumidity, recentRain, forecastScore, currentRain1h);
   const config = STATUS_CONFIG[status];
   const highHumidity = (currentHumidity ?? 0) > 90;
   const saturatedAirHardLock = highHumidity;
+  const isGoldOverride = status === "human_verified";
   const displayLabel = saturatedAirHardLock ? "Saturated Air - Drying Paused" : config.label;
-  const displayColor = saturatedAirHardLock ? "bg-destructive" : config.color;
+  const displayColor = saturatedAirHardLock ? "bg-destructive" : isGoldOverride ? "bg-amber-400" : config.color;
 
   const dryTime = report
     ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
@@ -185,12 +186,10 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
   const saturatedAirEstimate = Math.max(180, roundedDry ?? 180);
 
   const verifierName = latestObservation?.status === "playable" ? latestObservation.display_name : null;
-  const verifierTime = latestObservation?.status === "playable"
-    ? new Date(latestObservation.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : null;
+  const verifiedAgo = latestObservation?.status === "playable" ? getVerifiedAgoText(latestObservation.created_at) : null;
 
-  const showRainResetNote = report && latestObservation?.status === "playable" && status !== "verified";
-  const showActiveStatus = !saturatedAirHardLock && (status === "drying" || status === "wet");
+  const showRainResetNote = report && latestObservation?.status === "playable" && !isGoldOverride && status !== "verified";
+  const showActiveStatus = !saturatedAirHardLock && !isGoldOverride && (status === "drying" || status === "wet");
 
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
@@ -209,13 +208,25 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       </div>
 
-      {status === "verified" && (
+      {isGoldOverride && (
+        <div className="text-center space-y-1">
+          <CheckCircle2 className="w-7 h-7 text-amber-500 mx-auto" />
+          <p className="text-lg font-bold text-amber-500">Human Verified</p>
+          {verifierName && verifiedAgo && (
+            <p className="text-xs text-muted-foreground">
+              Verified by <span className="font-medium text-foreground">{verifierName}</span> · {verifiedAgo}
+            </p>
+          )}
+        </div>
+      )}
+
+      {status === "verified" && !isGoldOverride && (
         <div className="text-center space-y-1">
           <CheckCircle2 className="w-7 h-7 text-court-green mx-auto" />
           <p className="text-lg font-bold text-court-green">Verified Playable</p>
-          {verifierName && verifierTime && (
+          {verifierName && verifiedAgo && (
             <p className="text-xs text-muted-foreground">
-              by <span className="font-medium text-foreground">{verifierName}</span> at {verifierTime}
+              by <span className="font-medium text-foreground">{verifierName}</span> · {verifiedAgo}
             </p>
           )}
         </div>
@@ -262,7 +273,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
-      {!saturatedAirHardLock && status === "caution" && (
+      {!saturatedAirHardLock && !isGoldOverride && status === "caution" && (
         <div className="text-center space-y-1">
           <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
           <p className="text-lg font-bold text-court-amber">High Humidity – Saturated Air</p>
@@ -270,7 +281,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
         </div>
       )}
 
-      {!saturatedAirHardLock && status === "playable" && (
+      {!saturatedAirHardLock && !isGoldOverride && status === "playable" && (
         <div className="text-center space-y-1">
           <Sparkles className="w-6 h-6 text-court-green mx-auto" />
           <p className="text-lg font-bold text-court-green text-glow">Courts are Dry</p>
@@ -291,7 +302,7 @@ function StatusCard({ report, courtId, latestObservation, currentHumidity, recen
 
       {showActiveStatus && report && <SqueegeeAction report={report} courtId={courtId} />}
 
-      {!saturatedAirHardLock && (showActiveStatus || status === "playable") && report && (
+      {!saturatedAirHardLock && (showActiveStatus || status === "playable" || isGoldOverride) && report && (
         <StatusVerification courtId={courtId} reportId={report?.id ?? null} />
       )}
 
@@ -694,8 +705,16 @@ export default function CourtDetail() {
     staleTime: 240000,
   });
 
-  const rainResetActive = latestObservation?.status === "playable" && weatherData?.rain_1h > 0;
+  const currentRain1h = weatherData?.rain_1h ?? 0;
+  const rainResetActive = latestObservation?.status === "playable" && currentRain1h > 0;
   const effectiveObservation = rainResetActive ? null : latestObservation;
+
+  // Compute forecastNowScore for Unified Truth
+  const forecastNowScore = useMemo(() => {
+    if (!weatherData?.hourly || weatherData.hourly.length === 0) return null;
+    const { score } = calculatePlayability(weatherData.hourly as HourlyEntry[], 0, court?.drainage ?? 3, latestReport);
+    return score;
+  }, [weatherData?.hourly, court?.drainage, latestReport]);
 
   if (isLoading) {
     return (
@@ -758,7 +777,7 @@ export default function CourtDetail() {
         ))}
 
         <div data-tour="pulse">
-          <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={weatherData?.rain_1h > 0} />
+          <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={currentRain1h > 0} forecastScore={forecastNowScore} currentRain1h={currentRain1h} />
         </div>
 
         {weatherData?.hourly && weatherData.hourly.length > 0 && (

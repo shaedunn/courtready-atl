@@ -1,12 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle, Shield } from "lucide-react";
 import OnboardingModal, { isContributor } from "@/components/OnboardingModal";
 import { useNavigate } from "react-router-dom";
-import { supabase, type SovereignCourt, type Observation } from "@/lib/supabase";
+import { supabase, fetchWeather, type SovereignCourt, type Observation } from "@/lib/supabase";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
+import { getCourtStatus, getVerifiedAgoText, STATUS_CONFIG } from "@/lib/courts";
 import { Badge } from "@/components/ui/badge";
 
 type Report = Tables<"reports">;
@@ -41,6 +41,42 @@ function CourtCardSkeleton() {
   );
 }
 
+/* ─── Split-Status Helper ─── */
+function getSplitStatusBadge(
+  court: SovereignCourt,
+  subCourts: Tables<"sub_courts">[] | undefined,
+  allObservations: Observation[],
+  currentRain1h: number,
+  latestReport: Report | null,
+) {
+  if (!subCourts || subCourts.length === 0) return null;
+
+  const courtObservations = allObservations.filter((o) => o.court_id === court.id && o.status === "playable");
+  if (courtObservations.length === 0) return null;
+
+  // Get the latest playable observation
+  const latestPlayable = courtObservations[0]; // already sorted desc
+  // Check if it's invalidated by actual rain or newer report
+  const invalidated =
+    currentRain1h > 0 ||
+    (latestReport && latestReport.rainfall > 0 && new Date(latestReport.created_at) > new Date(latestPlayable.created_at));
+  if (invalidated) return null;
+
+  // Count verified sub-courts (simplified: if captain verified the facility, count based on observation)
+  // For now, one playable observation covers all courts unless sub-court-level observations exist
+  const totalCourts = subCourts.length;
+  // Count distinct sub-court verifications — for MVP, a facility-level observation counts as all
+  const verifiedCount = totalCourts; // Captain verified the whole facility
+
+  return {
+    verified: verifiedCount,
+    total: totalCourts,
+    verifierName: latestPlayable.display_name,
+    verifiedAgo: getVerifiedAgoText(latestPlayable.created_at),
+    allVerified: verifiedCount >= totalCourts,
+  };
+}
+
 function CourtCard({
   court,
   report,
@@ -48,6 +84,9 @@ function CourtCard({
   isPinned,
   onTogglePin,
   onNavigate,
+  forecastScore,
+  currentRain1h,
+  splitStatus,
 }: {
   court: SovereignCourt;
   report: Report | null;
@@ -55,9 +94,24 @@ function CourtCard({
   isPinned: boolean;
   onTogglePin: (id: string) => void;
   onNavigate: (id: string) => void;
+  forecastScore?: number | null;
+  currentRain1h?: number;
+  splitStatus?: { verified: number; total: number; verifierName: string; verifiedAgo: string; allVerified: boolean } | null;
 }) {
-  const status = getCourtStatus(report, observation);
+  const status = getCourtStatus(report, observation, null, undefined, forecastScore, currentRain1h);
   const config = STATUS_CONFIG[status];
+  const isGold = status === "human_verified";
+
+  // Determine badge display
+  let badgeLabel = config.label;
+  let badgeColor = config.color;
+
+  if (isGold && splitStatus && !splitStatus.allVerified) {
+    badgeLabel = `${splitStatus.verified}/${splitStatus.total} Courts Playable`;
+    badgeColor = "bg-amber-400";
+  } else if (isGold) {
+    badgeColor = "bg-amber-400";
+  }
 
   return (
     <div className="relative">
@@ -72,11 +126,16 @@ function CourtCard({
               <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
               <span className="text-xs text-muted-foreground truncate">{court.location}</span>
             </div>
+            {isGold && splitStatus && (
+              <p className="text-[10px] text-amber-600 mt-1">
+                Verified by {splitStatus.verifierName} · {splitStatus.verifiedAgo}
+              </p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
             <Badge variant="outline" className="text-[10px] px-2 py-0.5 gap-1.5 border-border">
-              <span className={`w-2 h-2 rounded-full ${config.color} inline-block`} />
-              {config.label}
+              <span className={`w-2 h-2 rounded-full ${badgeColor} inline-block`} />
+              {badgeLabel}
             </Badge>
           </div>
         </div>
@@ -209,6 +268,96 @@ export default function Dashboard() {
     placeholderData: keepPreviousData,
   });
 
+  // All observations for split-status
+  const { data: allObservations = [] } = useQuery({
+    queryKey: ["all-observations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("observations")
+        .select("*")
+        .eq("status", "playable")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as unknown as Observation[];
+    },
+    refetchInterval: courtsError ? false : 30000,
+    placeholderData: keepPreviousData,
+  });
+
+  // Sub-courts for split-status
+  const { data: allSubCourts = [] } = useQuery({
+    queryKey: ["all-sub-courts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sub_courts").select("*");
+      if (error) throw error;
+      return data;
+    },
+    placeholderData: keepPreviousData,
+  });
+
+  // Shared weather query for Atlanta (use first court with coords)
+  const weatherCoord = courts.find((c) => c.latitude && c.longitude);
+  const { data: sharedWeather } = useQuery({
+    queryKey: ["shared-weather", weatherCoord?.latitude, weatherCoord?.longitude],
+    queryFn: async () => {
+      if (!weatherCoord?.latitude || !weatherCoord?.longitude) return null;
+      try {
+        return await fetchWeather(weatherCoord.latitude, weatherCoord.longitude);
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!weatherCoord?.latitude && !!weatherCoord?.longitude,
+    refetchInterval: 300000,
+    staleTime: 240000,
+  });
+
+  const currentRain1h = sharedWeather?.rain_1h ?? 0;
+
+  // Compute forecast score per court
+  const forecastScores = useMemo(() => {
+    const hourly = sharedWeather?.hourly;
+    if (!hourly || hourly.length === 0) return {};
+
+    const scores: Record<string, number> = {};
+    for (const court of courts) {
+      const drainageMap: Record<number, number> = { 1: 1.5, 2: 1.2, 3: 1.0, 4: 0.8, 5: 0.6 };
+      const dm = drainageMap[court.drainage] ?? 1.0;
+      const window = hourly.slice(0, 3);
+
+      let rainPenalty = 0;
+      if (window.some((h: any) => h.pop > 0.3)) rainPenalty += 50;
+      for (const h of window as any[]) {
+        if (h.pop > 0.3) rainPenalty += Math.round(h.pop * 20);
+        if (h.rain_1h > 0) rainPenalty += 15;
+        if (h.humidity > 90) rainPenalty += 10;
+        if (h.wind_speed > 10) rainPenalty -= 5;
+      }
+      rainPenalty = Math.max(0, rainPenalty);
+      let score = 100 - Math.round(rainPenalty * dm);
+
+      const report = latestReports[court.id];
+      if (report) {
+        const elapsed = (Date.now() - new Date(report.created_at).getTime()) / 60000;
+        const remaining = Math.max(0, report.estimated_dry_minutes - elapsed);
+        if (remaining > 0) score -= 30;
+      }
+
+      scores[court.id] = Math.max(0, Math.min(100, score));
+    }
+    return scores;
+  }, [sharedWeather?.hourly, courts, latestReports]);
+
+  // Group sub-courts by facility
+  const subCourtsByFacility = useMemo(() => {
+    const map: Record<string, Tables<"sub_courts">[]> = {};
+    for (const sc of allSubCourts) {
+      if (!map[sc.facility_id]) map[sc.facility_id] = [];
+      map[sc.facility_id].push(sc);
+    }
+    return map;
+  }, [allSubCourts]);
+
   const filtered = courts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -218,6 +367,30 @@ export default function Dashboard() {
   const pinnedCourts = filtered.filter((c) => pinnedIds.includes(c.id));
   const unpinnedCourts = filtered.filter((c) => !pinnedIds.includes(c.id));
   const handleNavigate = (id: string) => navigate(`/court/${id}`);
+
+  const renderCard = (court: SovereignCourt, isPinned: boolean) => {
+    const splitStatus = getSplitStatusBadge(
+      court,
+      subCourtsByFacility[court.id],
+      allObservations,
+      currentRain1h,
+      latestReports[court.id] || null,
+    );
+    return (
+      <CourtCard
+        key={court.id}
+        court={court}
+        report={latestReports[court.id] || null}
+        observation={latestObservations[court.id] || null}
+        isPinned={isPinned}
+        onTogglePin={togglePin}
+        onNavigate={handleNavigate}
+        forecastScore={forecastScores[court.id] ?? null}
+        currentRain1h={currentRain1h}
+        splitStatus={splitStatus}
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -296,17 +469,13 @@ export default function Dashboard() {
             {pinnedCourts.length > 0 && (
               <>
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-1">Pinned</p>
-                {pinnedCourts.map((court) => (
-                  <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} observation={latestObservations[court.id] || null} isPinned onTogglePin={togglePin} onNavigate={handleNavigate} />
-                ))}
+                {pinnedCourts.map((court) => renderCard(court, true))}
                 {unpinnedCourts.length > 0 && (
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-3">All Courts</p>
                 )}
               </>
             )}
-            {unpinnedCourts.map((court) => (
-              <CourtCard key={court.id} court={court} report={latestReports[court.id] || null} observation={latestObservations[court.id] || null} isPinned={false} onTogglePin={togglePin} onNavigate={handleNavigate} />
-            ))}
+            {unpinnedCourts.map((court) => renderCard(court, false))}
           </>
         )}
       </main>
