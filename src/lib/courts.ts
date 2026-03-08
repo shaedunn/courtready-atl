@@ -34,15 +34,6 @@ function normalizeRating(rating: number): number {
 
 /**
  * Step-Multiplier dry time engine (V1).
- *
- * Base:       60 mins per 0.1" rain → 600 × effectiveRain
- * Humidity:   ×1.5 if 70–85%, ×2.0 if 85-90%, ×3.0 if >90% (saturated air)
- * Humidity Floor: if >90%, minimum 180 minutes (evaporation effectively zero)
- * Wind:       ×1.3 if wind < 3 mph
- * Drainage:   divide by normalized drainage (1-5 → 0.2-1.0)
- * Sun:        divide by normalized sun exposure (1-5 → 0.2-1.0)
- * Shade Penalty: sun_exposure=1 adds 50% time penalty
- * Hindrance:  multiply by highest hindrance factor
  */
 export function calculateDryTime(
   rainfall: number,
@@ -60,7 +51,7 @@ export function calculateDryTime(
   // Base: 60 mins per 0.1 inch
   let minutes = effectiveRain * 600;
 
-  // Humidity penalty — 90%+ caps natural evaporation speed at ~33% (×3.0, saturated air)
+  // Humidity penalty
   if (humidity > 90) {
     minutes *= 3.0;
   } else if (humidity > 85) {
@@ -74,12 +65,12 @@ export function calculateDryTime(
     minutes *= 1.3;
   }
 
-  // Drainage & sun exposure as divisors (1-5 scale → normalized)
+  // Drainage & sun exposure as divisors
   const drainageFactor = normalizeRating(drainage);
   const sunFactor = normalizeRating(sunExposure);
   minutes = minutes / drainageFactor / sunFactor;
 
-  // Shade penalty: sun_exposure=1 adds 50% time
+  // Shade penalty
   if (sunExposure <= 1) {
     minutes *= 1.5;
   }
@@ -113,8 +104,6 @@ export function calculateSqueegeeDryTime(naturalMinutes: number): number {
 
 /**
  * Format dry time as human-readable string.
- * < 60 → "X minutes"
- * ≥ 60 → "X hours and Y minutes" (omits "and 0 minutes" if exact)
  */
 export function formatDryTime(minutes: number): string {
   if (minutes < 60) return `${minutes} minutes`;
@@ -125,47 +114,75 @@ export function formatDryTime(minutes: number): string {
 }
 
 /**
- * Traffic-light status from a report row + optional latest observation + current humidity.
+ * Format a "verified ago" text from a created_at timestamp.
+ */
+export function getVerifiedAgoText(createdAt: string): string {
+  const mins = Math.round((Date.now() - new Date(createdAt).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
+}
+
+/**
+ * Traffic-light status from a report row + optional latest observation + current conditions.
  *
- * Verified: playable observation < 45 min old (AND humidity ≤ 90)
- * Playable: no report in 12h OR dry time elapsed (AND humidity ≤ 90 if rain report exists)
- * Drying:   report exists and dry time not yet finished
- * Wet:      report < 60 min old with > 0.25" rain
+ * human_verified: Captain marked playable AND no actual rain invalidating it
+ * verified:       (legacy alias — now mapped to human_verified)
+ * playable:       forecast >= 70 OR no report in 12h OR dry time elapsed
+ * drying:         forecast 40-69 OR report active and drying
+ * wet:            forecast < 40 OR heavy recent rain
+ * caution:        humidity > 90%
  *
- * PERSISTENCE RULE: Never show "Dry" based on weather alone.
- * Only "Dry" if calculateDryTime from most recent report has reached zero.
+ * PERSISTENCE RULE: Captain's 'Playable' observation persists until:
+ *   1. Actual rain recorded (rain_1h > 0) — NOT predicted rain (PoP)
+ *   2. A newer report with rainfall > 0 is filed
  *
  * HARD SAFETY RULE: If humidity > 90%, status cannot be "playable".
  */
-export type CourtStatus = "playable" | "drying" | "wet" | "verified" | "caution";
+export type CourtStatus = "playable" | "drying" | "wet" | "verified" | "human_verified" | "caution";
 
 export function getCourtStatus(
   report: { created_at: string; estimated_dry_minutes: number; rainfall: number } | null,
-  latestObservation?: { status: string; created_at: string } | null,
+  latestObservation?: { status: string; created_at: string; display_name?: string } | null,
   currentHumidity?: number | null,
-  recentRain?: boolean
+  recentRain?: boolean,
+  forecastScore?: number | null,
+  currentRain1h?: number | null,
 ): CourtStatus {
   const highHumidity = (currentHumidity ?? 0) > 90;
 
-  // Check for verified playable within last 45 minutes
-  // BUT not if humidity > 90% (evaporation stalled)
+  // ── Captain's Gold Override (persistent, no expiry) ──
+  // Only invalidated by ACTUAL rain (rain_1h > 0) or a newer rain report
   if (latestObservation?.status === "playable" && !highHumidity) {
-    const obsAge = (Date.now() - new Date(latestObservation.created_at).getTime()) / 60000;
-    if (obsAge <= 45) return "verified";
+    const actualRainNow = (currentRain1h ?? 0) > 0;
+    const newerRainReport =
+      report &&
+      report.rainfall > 0 &&
+      new Date(report.created_at).getTime() > new Date(latestObservation.created_at).getTime();
+
+    if (!actualRainNow && !newerRainReport) {
+      return "human_verified";
+    }
   }
 
-  // Hard safety override: humidity > 90% always means saturated air
-  const reportAgeMinutes = report
-    ? (Date.now() - new Date(report.created_at).getTime()) / 60000
-    : Number.POSITIVE_INFINITY;
-
+  // Hard safety override: humidity > 90%
   if (highHumidity) {
     return "caution";
   }
 
+  // ── Forecast-driven status (Unified Truth) ──
+  if (forecastScore != null) {
+    if (forecastScore < 40) return "wet";
+    if (forecastScore < 70) return "drying";
+    return "playable";
+  }
+
+  // ── Fallback: report-age-based logic (when no weather data) ──
   if (!report) return "playable";
 
-  const ageMinutes = reportAgeMinutes;
+  const ageMinutes = (Date.now() - new Date(report.created_at).getTime()) / 60000;
 
   // No report in 12 hours → playable
   if (ageMinutes > 720) return "playable";
@@ -183,7 +200,8 @@ export function getCourtStatus(
 export const STATUS_CONFIG: Record<CourtStatus, { color: string; label: string }> = {
   playable: { color: "bg-court-green", label: "Playable" },
   verified: { color: "bg-court-green", label: "Verified Playable" },
+  human_verified: { color: "bg-amber-400", label: "Human Verified" },
   caution: { color: "bg-court-amber", label: "Saturated Air" },
   drying: { color: "bg-court-amber", label: "Drying" },
-  wet: { color: "bg-court-red", label: "Wet" },
+  wet: { color: "bg-court-red", label: "Likely Unplayable" },
 };

@@ -7,11 +7,18 @@ interface SplashScreenProps {
   queryClient: QueryClient;
 }
 
+const INSIGHTS = [
+  "Consulting the Ghost of Rain...",
+  "Calibrating Atlanta Physics...",
+  "Syncing 3-Hour Forecast...",
+];
+
 export default function SplashScreen({ onComplete, queryClient }: SplashScreenProps) {
   const [fadingOut, setFadingOut] = useState(false);
   const [dataReady, setDataReady] = useState(false);
   const [minTimeReached, setMinTimeReached] = useState(false);
   const [showCTA, setShowCTA] = useState(false);
+  const [insightIndex, setInsightIndex] = useState(0);
   const completedRef = useRef(false);
 
   useEffect(() => {
@@ -61,6 +68,14 @@ export default function SplashScreen({ onComplete, queryClient }: SplashScreenPr
       clearTimeout(ctaTimer);
     };
   }, [queryClient]);
+
+  // Cycle insights every 2 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setInsightIndex((prev) => (prev + 1) % INSIGHTS.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-exit when both min time and data are ready
   useEffect(() => {
@@ -127,6 +142,17 @@ export default function SplashScreen({ onComplete, queryClient }: SplashScreenPr
             Start
           </button>
         )}
+
+        {/* Cycling Insights */}
+        <div className="absolute bottom-16 left-0 right-0 flex justify-center">
+          <p
+            key={insightIndex}
+            className="text-white/60 text-xs tracking-wide opacity-0"
+            style={{ animation: "splash-logo-in 0.5s ease-out forwards" }}
+          >
+            {INSIGHTS[insightIndex]}
+          </p>
+        </div>
       </div>
     </div>
   );
