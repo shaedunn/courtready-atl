@@ -705,8 +705,16 @@ export default function CourtDetail() {
     staleTime: 240000,
   });
 
-  const rainResetActive = latestObservation?.status === "playable" && weatherData?.rain_1h > 0;
+  const currentRain1h = weatherData?.rain_1h ?? 0;
+  const rainResetActive = latestObservation?.status === "playable" && currentRain1h > 0;
   const effectiveObservation = rainResetActive ? null : latestObservation;
+
+  // Compute forecastNowScore for Unified Truth
+  const forecastNowScore = useMemo(() => {
+    if (!weatherData?.hourly || weatherData.hourly.length === 0) return null;
+    const { score } = calculatePlayability(weatherData.hourly as HourlyEntry[], 0, court?.drainage ?? 3, latestReport);
+    return score;
+  }, [weatherData?.hourly, court?.drainage, latestReport]);
 
   if (isLoading) {
     return (
