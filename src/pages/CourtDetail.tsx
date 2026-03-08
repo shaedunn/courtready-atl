@@ -4,7 +4,7 @@ import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Drop
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
-import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG } from "@/lib/courts";
+import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG, getVerifiedAgoText } from "@/lib/courts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
