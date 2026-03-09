@@ -850,15 +850,6 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        {subCourts && subCourts.filter(sc => sc.hazard_description).map(sc => (
-          <div key={sc.id} className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
-            <ShieldAlert className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-semibold text-destructive">Court {sc.court_number} — Safety Hazard</p>
-              <p className="text-xs text-destructive/80">{sc.hazard_description}</p>
-            </div>
-          </div>
-        ))}
 
         <div data-tour="pulse">
           <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={currentRain1h > 0} forecastScore={forecastNowScore} currentRain1h={currentRain1h} />
