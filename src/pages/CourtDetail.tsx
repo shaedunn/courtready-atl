@@ -95,7 +95,7 @@ function StatusVerification({ courtId, reportId }: { courtId: string; reportId: 
 
   if (needsName) return <DisplayNamePrompt onConfirm={handleNameConfirmed} />;
 
-  const btnClass = "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border transition-all active:scale-[0.98] disabled:opacity-50";
+  const btnClass = "flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 rounded-lg text-xs font-medium border transition-all active:scale-[0.98] disabled:opacity-50";
 
   return (
     <div className="space-y-2">
@@ -479,7 +479,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
       {reportTier === "tier2" && (
         <div className="bg-card rounded-lg p-3 border border-border flex items-center justify-between">
           <p className="text-xs text-muted-foreground">Forecast — no recent reports</p>
-          <a href="/captain" className="text-[11px] text-primary hover:underline font-medium">
+          <a href="/captain" className="text-[11px] text-primary hover:underline font-medium min-h-[44px] flex items-center py-2">
             On site? Update in 3 taps →
           </a>
         </div>
@@ -492,10 +492,10 @@ function DryClockForecast({ weatherData, court, latestReport }: {
             Dry-Clock Forecast
           </span>
           <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
-            <ToggleGroupItem value="0" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
-            <ToggleGroupItem value="1" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
-            <ToggleGroupItem value="2" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
-            <ToggleGroupItem value="3" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
+            <ToggleGroupItem value="0" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
+            <ToggleGroupItem value="1" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
+            <ToggleGroupItem value="2" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
+            <ToggleGroupItem value="3" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
           </ToggleGroup>
         </div>
 
@@ -529,7 +529,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         {/* Expandable calculation details */}
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          className="flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors min-h-[44px] py-2"
         >
           <Info className="w-3 h-3" />
           {showDetails ? "Hide details" : "How is this calculated?"}
@@ -668,7 +668,7 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
           onKeyDown={(e) => e.key === "Enter" && submitLog.mutate()}
           className="flex-1 bg-secondary text-foreground rounded-lg px-3 py-2 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50" />
         <button onClick={() => submitLog.mutate()}
-          className="p-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 active:scale-95 transition-all">
+          className="p-2.5 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 active:scale-95 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center">
           <Send className="w-4 h-4" />
         </button>
       </div>
@@ -821,7 +821,7 @@ export default function CourtDetail() {
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4">
           <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
-            <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent/80 transition-colors">
+          <button onClick={() => navigate("/")} className="p-2.5 -ml-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
               <ArrowLeft className="w-5 h-5 text-accent-foreground" />
             </button>
             <div className="flex-1 space-y-1">
@@ -849,7 +849,7 @@ export default function CourtDetail() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4">
         <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent/80 transition-colors">
+          <button onClick={() => navigate("/")} className="p-2.5 -ml-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
             <ArrowLeft className="w-5 h-5 text-accent-foreground" />
           </button>
           <div className="flex-1 min-w-0">
@@ -859,7 +859,7 @@ export default function CourtDetail() {
               <p className="text-xs text-accent-foreground/70 truncate">{court.location}</p>
             </div>
           </div>
-          <button onClick={() => navigate(`/court/${id}/admin`)} className="p-1.5 rounded-lg hover:bg-accent/80 transition-colors" aria-label="Facility Setup">
+          <button onClick={() => navigate(`/court/${id}/admin`)} className="p-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Facility Setup">
             <Settings className="w-5 h-5 text-accent-foreground/70" />
           </button>
         </div>

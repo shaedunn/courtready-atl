@@ -144,7 +144,7 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
               key={tag}
               onClick={() => handleTagTap(tag)}
               disabled={submitMutation.isPending}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95
+              className={`px-4 py-2.5 min-h-[44px] rounded-full text-xs font-medium border transition-all active:scale-95
                 ${selectedTags.has(tag)
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-secondary text-secondary-foreground border-border hover:border-primary/40"
