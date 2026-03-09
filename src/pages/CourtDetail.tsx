@@ -529,7 +529,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         {/* Expandable calculation details */}
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          className="flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors min-h-[44px] py-2"
         >
           <Info className="w-3 h-3" />
           {showDetails ? "Hide details" : "How is this calculated?"}
