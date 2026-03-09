@@ -41,8 +41,10 @@ function generateSlug(): string {
 const CAPTAIN_USER_ID = "placeholder-all-access";
 
 export default function CaptainDashboard() {
+  const pinnedIds = useMemo(() => getPinnedIds(), []);
   const [selectedCourt, setSelectedCourt] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [publishedStatus, setPublishedStatus] = useState<string | null>(null);
   const [effortTags, setEffortTags] = useState<string[]>([]);
   const [captainNote, setCaptainNote] = useState("");
   const [captainName, setCaptainName] = useState(
