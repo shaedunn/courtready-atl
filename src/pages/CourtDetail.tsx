@@ -5,6 +5,7 @@ import { supabase, fetchWeather, type SovereignCourt, type Observation, getDispl
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG, getVerifiedAgoText } from "@/lib/courts";
+import { computeDryClock, getReportTier, getReportAgeText, type DryClockResult, type ReportTier } from "@/lib/dry-clock";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -346,16 +347,13 @@ function calculatePlayability(
   const dm = drainageMap[courtDrainage] ?? 1.0;
 
   let rainPenalty = 0;
-
   if (window.some(h => h.pop > 0.3)) rainPenalty += 50;
-
   for (const h of window) {
     if (h.pop > 0.3) rainPenalty += Math.round(h.pop * 20);
     if (h.rain_1h > 0) rainPenalty += 15;
     if (h.humidity > 90) rainPenalty += 10;
     if (h.wind_speed > 10) rainPenalty -= 5;
   }
-
   rainPenalty = Math.max(0, rainPenalty);
   let score = 100 - Math.round(rainPenalty * dm);
 
@@ -375,132 +373,186 @@ function calculatePlayability(
   if (latestReport) {
     const elapsed = (Date.now() - new Date(latestReport.created_at).getTime()) / 60000;
     const remaining = Math.max(0, latestReport.estimated_dry_minutes - elapsed);
-    if (remaining > offset * 60) {
-      score -= 30;
-    }
+    if (remaining > offset * 60) score -= 30;
   }
 
   return { score: Math.max(0, Math.min(100, score)), ghostActive };
 }
 
-function getInsightText(
-  score: number,
-  allHourly: HourlyEntry[],
-  windowHours: HourlyEntry[],
-  ghostActive: boolean,
-): string {
-  if (ghostActive) return "Earlier rain still affecting courts — drainage factor applied.";
-  if (score >= 80) {
-    const firstRain = allHourly.find(h => h.pop > 0.3);
-    if (firstRain) {
-      const t = new Date(firstRain.dt * 1000).toLocaleTimeString([], { hour: "numeric", hour12: true });
-      return `High confidence: No rain expected until ${t}.`;
-    }
-    return "High confidence: Clear skies and no rain expected.";
-  }
-  if (score >= 50) {
-    const rainHour = windowHours.find(h => h.pop > 0.3);
-    if (rainHour) {
-      const t = new Date(rainHour.dt * 1000).toLocaleTimeString([], { hour: "numeric", hour12: true });
-      return `Caution: Incoming moisture at ${t} may cut match short.`;
-    }
-    return "Caution: Moisture risk detected in your play window.";
-  }
-  return "Low confidence: Rain likely. Consider indoor alternatives.";
-}
-
-function PlayabilityForecast({ weatherData, court, latestReport }: {
+/* ─── Dry-Clock Forecast Component ─── */
+function DryClockForecast({ weatherData, court, latestReport }: {
   weatherData: WeatherWithHourly;
   court: SovereignCourt;
   latestReport: Report | null;
 }) {
   const [offset, setOffset] = useState("0");
+  const [showDetails, setShowDetails] = useState(false);
   const hourly = weatherData.hourly ?? [];
 
-  const { score, ghostActive } = useMemo(
-    () => calculatePlayability(hourly, parseInt(offset), court.drainage, latestReport),
-    [hourly, offset, court.drainage, latestReport],
-  );
+  // Get recent report (< 6h) rainfall for step 2
+  const recentReportRainfall = useMemo(() => {
+    if (!latestReport) return null;
+    const ageH = (Date.now() - new Date(latestReport.created_at).getTime()) / 3600000;
+    if (ageH > 6) return null;
+    return latestReport.rainfall; // already in inches from reports table
+  }, [latestReport]);
 
-  const windowHours = hourly.slice(parseInt(offset), parseInt(offset) + 3);
-  const insight = useMemo(
-    () => getInsightText(score, hourly, windowHours, ghostActive),
-    [score, hourly, windowHours, ghostActive],
-  );
+  const dryClockResult = useMemo(() => {
+    const off = parseInt(offset);
+    if (off === 0 || !hourly.length) {
+      // Use current weather
+      return computeDryClock(
+        weatherData.rain_1h ?? 0,
+        weatherData.humidity ?? 50,
+        weatherData.wind_speed ?? 5,
+        weatherData.description ?? "",
+        court.drainage,
+        court.sun_exposure,
+        off === 0 ? recentReportRainfall : null,
+      );
+    }
+    // Use hourly data for offset
+    const h = hourly[off];
+    if (!h) {
+      return computeDryClock(
+        weatherData.rain_1h ?? 0,
+        weatherData.humidity ?? 50,
+        weatherData.wind_speed ?? 5,
+        weatherData.description ?? "",
+        court.drainage,
+        court.sun_exposure,
+        null,
+      );
+    }
+    return computeDryClock(
+      h.rain_1h ?? 0,
+      h.humidity ?? 50,
+      h.wind_speed ?? 5,
+      h.description ?? weatherData.description ?? "",
+      court.drainage,
+      court.sun_exposure,
+      null,
+    );
+  }, [offset, hourly, weatherData, court.drainage, court.sun_exposure, recentReportRainfall]);
 
-  const size = 160;
-  const strokeWidth = 8;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (score / 100) * circumference;
+  // Report tier
+  const reportTier = getReportTier(latestReport?.created_at ?? null);
 
-  const ringColor = score >= 70
-    ? "hsl(var(--court-green))"
-    : score >= 40
-      ? "hsl(var(--court-amber))"
-      : "hsl(var(--court-red))";
+  // Determine colors
+  const cardBg = dryClockResult.isActiveRain
+    ? "bg-destructive/10 border-destructive/30"
+    : dryClockResult.estimatedMinutes <= 0
+      ? "bg-court-green/5 border-court-green/20"
+      : dryClockResult.estimatedMinutes <= 60
+        ? "bg-court-amber/5 border-court-amber/20"
+        : "bg-destructive/5 border-destructive/20";
 
-  const textColor = score >= 70
-    ? "text-court-green"
-    : score >= 40
-      ? "text-court-amber"
-      : "text-destructive";
+  const textColor = dryClockResult.isActiveRain
+    ? "text-destructive"
+    : dryClockResult.estimatedMinutes <= 0
+      ? "text-court-green"
+      : dryClockResult.estimatedMinutes <= 60
+        ? "text-court-amber"
+        : "text-destructive";
 
   return (
-    <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
-      <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
-        Playability Forecast · 3-Hr Outlook
-      </span>
-
-      <div className="flex justify-center">
-        <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
-          <ToggleGroupItem value="0" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
-          <ToggleGroupItem value="1" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
-          <ToggleGroupItem value="2" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
-          <ToggleGroupItem value="3" className="text-xs px-3 py-1.5 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-
-      <div className="flex justify-center relative">
-        <svg width={size} height={size} className="transform -rotate-90">
-          <circle
-            cx={size / 2} cy={size / 2} r={radius}
-            fill="none"
-            stroke="hsl(var(--secondary))"
-            strokeWidth={strokeWidth}
-          />
-          <circle
-            cx={size / 2} cy={size / 2} r={radius}
-            fill="none"
-            stroke={ringColor}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-            style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.3s ease" }}
-          />
-        </svg>
-        <div className="absolute flex items-center justify-center" style={{ width: size, height: size }}>
-          <span className={`font-bold text-3xl ${textColor}`}>{score}%</span>
+    <div className="space-y-3">
+      {/* Tier indicator */}
+      {reportTier === "tier1" && latestReport && (
+        <div className="bg-card rounded-lg p-3 border border-border">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-1">Forecast context</p>
+          <p className="text-xs text-muted-foreground">
+            Reported {getReportAgeText(latestReport.created_at)}
+          </p>
         </div>
-      </div>
+      )}
 
-      <p className="text-center text-xs text-muted-foreground px-2">{insight}</p>
-
-      <TooltipProvider delayDuration={100}>
-        <div className="flex justify-center">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="mx-auto flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                <Info className="w-3 h-3" /> How is this calculated?
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[280px] text-xs">
-              Score is a physics estimate based on your court's specific drainage/sun ratings + latest local weather. Always check for Captains' live reports for 100% verification.
-            </TooltipContent>
-          </Tooltip>
+      {reportTier === "stale" && latestReport && (
+        <div className="bg-court-amber/5 rounded-lg p-3 border border-court-amber/20">
+          <p className="text-xs text-court-amber">
+            Last reported — {getReportAgeText(latestReport.created_at)}. Conditions may have changed.
+          </p>
         </div>
-      </TooltipProvider>
+      )}
+
+      {reportTier === "tier2" && (
+        <div className="bg-card rounded-lg p-3 border border-border flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">Forecast — no recent reports</p>
+          <a href="/captain" className="text-[11px] text-primary hover:underline font-medium">
+            On site? Update in 3 taps →
+          </a>
+        </div>
+      )}
+
+      {/* Main Dry-Clock card */}
+      <div className={`rounded-lg p-5 border space-y-4 ${cardBg}`}>
+        <div className="flex items-center justify-between">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
+            Dry-Clock Forecast
+          </span>
+          <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
+            <ToggleGroupItem value="0" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
+            <ToggleGroupItem value="1" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
+            <ToggleGroupItem value="2" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
+            <ToggleGroupItem value="3" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {/* Large action-oriented status line */}
+        <p className={`text-lg font-bold font-heading leading-snug ${textColor}`}>
+          {dryClockResult.outputString}
+        </p>
+
+        {dryClockResult.isActiveRain && (
+          <p className="text-xs text-destructive/80">
+            Active rain detected. Forecast will update as conditions change.
+          </p>
+        )}
+
+        {/* Expandable calculation details */}
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        >
+          <Info className="w-3 h-3" />
+          {showDetails ? "Hide details" : "How is this calculated?"}
+        </button>
+
+        {showDetails && (
+          <div className="bg-secondary/50 rounded-lg p-3 space-y-1.5 text-xs text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Rainfall</span>
+              <span className="font-medium text-foreground">{dryClockResult.inputs.rainfallInches.toFixed(2)}″</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Drainage rating</span>
+              <span className="font-medium text-foreground">{dryClockResult.inputs.drainageRating}/5</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Humidity</span>
+              <span className="font-medium text-foreground">{dryClockResult.inputs.humidity}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Wind speed</span>
+              <span className="font-medium text-foreground">{dryClockResult.inputs.windSpeed} mph</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Sun exposure</span>
+              <span className="font-medium text-foreground">{dryClockResult.inputs.sunExposure}/5</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Conditions</span>
+              <span className="font-medium text-foreground capitalize">{dryClockResult.inputs.description || "—"}</span>
+            </div>
+            {dryClockResult.estimatedMinutes > 0 && (
+              <div className="flex justify-between pt-1 border-t border-border">
+                <span>Estimated dry time</span>
+                <span className="font-medium text-foreground">{formatDryTime(dryClockResult.estimatedMinutes)}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -780,8 +832,8 @@ export default function CourtDetail() {
           <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={currentRain1h > 0} forecastScore={forecastNowScore} currentRain1h={currentRain1h} />
         </div>
 
-        {weatherData?.hourly && weatherData.hourly.length > 0 && (
-          <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
+        {weatherData && (
+          <DryClockForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
 
         {rainResetActive && (
