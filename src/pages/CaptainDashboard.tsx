@@ -206,18 +206,29 @@ export default function CaptainDashboard() {
 
       <Separator />
 
+      {/* Published confirmation */}
+      {publishedStatus && (
+        <div className="flex items-center gap-2 bg-court-green/10 rounded-lg p-3 border border-court-green/20">
+          <CheckCircle2 className="w-5 h-5 text-court-green flex-shrink-0" />
+          <p className="text-sm font-medium text-court-green">
+            Published: {ACTION_LABELS[publishedStatus]}
+          </p>
+        </div>
+      )}
+
       {/* Match Status Section */}
       <div className="space-y-3">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
           Match Status
         </label>
         {STATUS_BUTTONS.map((btn) => {
-          const isSelected = selectedStatus === btn.value;
-          const isDisabled = selectedStatus !== null && !isSelected;
+          const isPublished = publishedStatus === btn.value;
+          const isSelected = selectedStatus === btn.value || isPublished;
+          const isDisabled = (selectedStatus !== null || publishedStatus !== null) && !isSelected;
           return (
             <button
               key={btn.value}
-              disabled={submitting}
+              disabled={submitting || !!publishedStatus}
               onClick={() => toggleStatus(btn.value)}
               className={`w-full py-4 rounded-xl font-bold text-lg transition-all border-2 ${
                 isSelected
