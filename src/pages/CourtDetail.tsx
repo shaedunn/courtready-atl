@@ -380,6 +380,27 @@ function calculatePlayability(
   return { score: Math.max(0, Math.min(100, score)), ghostActive };
 }
 
+/* ─── Infer anonymous report condition ─── */
+type AnonCondition = "dry" | "damp" | "wet" | "active_rain";
+
+function inferAnonCondition(report: Report): AnonCondition {
+  if (report.sky_condition === "clear" && report.rainfall === 0) return "dry";
+  if (report.sky_condition === "cloudy" && report.rainfall === 0) return "damp";
+  if (report.sky_condition === "rain" && report.estimated_dry_minutes >= 180) return "active_rain";
+  if (report.sky_condition === "rain") return "wet";
+  // Fallback heuristics
+  if (report.rainfall >= 0.4) return "active_rain";
+  if (report.rainfall >= 0.2) return "wet";
+  if (report.estimated_dry_minutes > 0) return "damp";
+  return "dry";
+}
+
+function isRecentAnonReport(report: Report | null): boolean {
+  if (!report) return false;
+  const ageMs = Date.now() - new Date(report.created_at).getTime();
+  return ageMs < 2 * 60 * 60 * 1000; // 2 hours
+}
+
 /* ─── Dry-Clock Forecast Component ─── */
 function DryClockForecast({ weatherData, court, latestReport }: {
   weatherData: WeatherWithHourly;
@@ -389,7 +410,6 @@ function DryClockForecast({ weatherData, court, latestReport }: {
   const [offset, setOffset] = useState("0");
   const [showDetails, setShowDetails] = useState(false);
   const hourly = weatherData.hourly ?? [];
-
   // Get recent report (< 6h) rainfall for step 2
   const recentReportRainfall = useMemo(() => {
     if (!latestReport) return null;
