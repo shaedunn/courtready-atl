@@ -68,8 +68,12 @@ export default function CaptainDashboard() {
     },
   });
 
-  // Auto-select first facility
-  const activeCourt = selectedCourt || courts?.[0]?.id || "";
+  // Auto-select: first pinned court, then first court overall
+  const activeCourt = selectedCourt || (courts && pinnedIds.length > 0 ? courts.find(c => pinnedIds.includes(c.id))?.id : undefined) || courts?.[0]?.id || "";
+
+  // Split courts into pinned and unpinned
+  const pinnedCourts = useMemo(() => courts?.filter(c => pinnedIds.includes(c.id)) ?? [], [courts, pinnedIds]);
+  const unpinnedCourts = useMemo(() => courts?.filter(c => !pinnedIds.includes(c.id)) ?? [], [courts, pinnedIds]);
 
   const toggleEffort = (tag: string) => {
     setEffortTags((prev) =>
