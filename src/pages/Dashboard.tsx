@@ -97,6 +97,7 @@ function CourtCard({
   forecastScore?: number | null;
   currentRain1h?: number;
   splitStatus?: { verified: number; total: number; verifierName: string; verifiedAgo: string; allVerified: boolean } | null;
+  todayReportCount?: number;
 }) {
   const status = getCourtStatus(report, observation, null, undefined, forecastScore, currentRain1h);
   const config = STATUS_CONFIG[status];
