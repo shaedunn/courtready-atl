@@ -380,6 +380,27 @@ function calculatePlayability(
   return { score: Math.max(0, Math.min(100, score)), ghostActive };
 }
 
+/* ─── Infer anonymous report condition ─── */
+type AnonCondition = "dry" | "damp" | "wet" | "active_rain";
+
+function inferAnonCondition(report: Report): AnonCondition {
+  if (report.sky_condition === "clear" && report.rainfall === 0) return "dry";
+  if (report.sky_condition === "cloudy" && report.rainfall === 0) return "damp";
+  if (report.sky_condition === "rain" && report.estimated_dry_minutes >= 180) return "active_rain";
+  if (report.sky_condition === "rain") return "wet";
+  // Fallback heuristics
+  if (report.rainfall >= 0.4) return "active_rain";
+  if (report.rainfall >= 0.2) return "wet";
+  if (report.estimated_dry_minutes > 0) return "damp";
+  return "dry";
+}
+
+function isRecentAnonReport(report: Report | null): boolean {
+  if (!report) return false;
+  const ageMs = Date.now() - new Date(report.created_at).getTime();
+  return ageMs < 2 * 60 * 60 * 1000; // 2 hours
+}
+
 /* ─── Dry-Clock Forecast Component ─── */
 function DryClockForecast({ weatherData, court, latestReport }: {
   weatherData: WeatherWithHourly;
@@ -389,7 +410,6 @@ function DryClockForecast({ weatherData, court, latestReport }: {
   const [offset, setOffset] = useState("0");
   const [showDetails, setShowDetails] = useState(false);
   const hourly = weatherData.hourly ?? [];
-
   // Get recent report (< 6h) rainfall for step 2
   const recentReportRainfall = useMemo(() => {
     if (!latestReport) return null;
@@ -456,10 +476,65 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         ? "text-court-amber"
         : "text-destructive";
 
+  // Anonymous report override logic
+  const hasRecentReport = isRecentAnonReport(latestReport);
+  const anonCondition = hasRecentReport && latestReport ? inferAnonCondition(latestReport) : null;
+  const reportAgeText = hasRecentReport && latestReport ? getReportAgeText(latestReport.created_at) : null;
+
+  // Override card styling based on anonymous report
+  const overrideCardBg = anonCondition === "active_rain"
+    ? "bg-destructive/10 border-destructive/30"
+    : anonCondition === "wet"
+      ? "bg-destructive/5 border-destructive/20"
+      : anonCondition === "damp"
+        ? "bg-court-amber/5 border-court-amber/20"
+        : anonCondition === "dry"
+          ? "bg-court-green/5 border-court-green/20"
+          : null;
+
+  const overrideTextColor = anonCondition === "active_rain" || anonCondition === "wet"
+    ? "text-destructive"
+    : anonCondition === "damp"
+      ? "text-court-amber"
+      : anonCondition === "dry"
+        ? "text-court-green"
+        : null;
+
+  const finalCardBg = (hasRecentReport && parseInt(offset) === 0 && overrideCardBg) ? overrideCardBg : cardBg;
+  const finalTextColor = (hasRecentReport && parseInt(offset) === 0 && overrideTextColor) ? overrideTextColor : textColor;
+
+  // Build override output string for "Now" offset
+  const overrideOutput = useMemo(() => {
+    if (!hasRecentReport || !latestReport || parseInt(offset) !== 0) return null;
+    const condition = inferAnonCondition(latestReport);
+    const age = getReportAgeText(latestReport.created_at);
+    switch (condition) {
+      case "dry":
+        return `Courts confirmed dry — reported ${age}`;
+      case "damp":
+        return `Courts damp — drying in progress. ${dryClockResult.estimatedMinutes > 0 ? `Estimated ${formatDryTime(dryClockResult.estimatedMinutes)} to dry.` : "Algorithm estimate still applies."}`;
+      case "wet":
+        return `Standing water reported ${age}. ${dryClockResult.estimatedMinutes > 0 ? `Estimated playable by ${dryClockResult.estimatedPlayableTime ?? "—"} with ${dryClockResult.effortLevel.toLowerCase() || "effort"}${dryClockResult.action ? ` (${dryClockResult.action})` : ""}.` : ""}`;
+      case "active_rain":
+        return `Active rain reported ${age}. Forecast will update as rain clears.`;
+      default:
+        return null;
+    }
+  }, [hasRecentReport, latestReport, offset, dryClockResult]);
+
+  const showOutput = overrideOutput ?? dryClockResult.outputString;
+
+  // Context label
+  const contextLabel = hasRecentReport && reportAgeText
+    ? `Community report — ${reportAgeText}`
+    : reportTier === "tier2"
+      ? "Forecast — no recent reports"
+      : null;
+
   return (
     <div className="space-y-3">
-      {/* Tier indicator */}
-      {reportTier === "tier1" && latestReport && (
+      {/* Tier indicator — only show when NOT overridden by recent anon report */}
+      {!hasRecentReport && reportTier === "tier1" && latestReport && (
         <div className="bg-card rounded-lg p-3 border border-border">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-1">Forecast context</p>
           <p className="text-xs text-muted-foreground">
@@ -468,7 +543,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         </div>
       )}
 
-      {reportTier === "stale" && latestReport && (
+      {!hasRecentReport && reportTier === "stale" && latestReport && (
         <div className="bg-court-amber/5 rounded-lg p-3 border border-court-amber/20">
           <p className="text-xs text-court-amber">
             Last reported — {getReportAgeText(latestReport.created_at)}. Conditions may have changed.
@@ -476,7 +551,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         </div>
       )}
 
-      {reportTier === "tier2" && (
+      {!hasRecentReport && reportTier === "tier2" && (
         <div className="bg-card rounded-lg p-3 border border-border flex items-center justify-between">
           <p className="text-xs text-muted-foreground">Forecast — no recent reports</p>
           <a href="/captain" className="text-[11px] text-primary hover:underline font-medium min-h-[44px] flex items-center py-2">
@@ -486,7 +561,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
       )}
 
       {/* Main Dry-Clock card */}
-      <div className={`rounded-lg p-5 border space-y-4 ${cardBg}`}>
+      <div className={`rounded-lg p-5 border space-y-4 ${finalCardBg}`}>
         <div className="flex items-center justify-between">
           <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
             Dry-Clock Forecast
@@ -499,12 +574,20 @@ function DryClockForecast({ weatherData, court, latestReport }: {
           </ToggleGroup>
         </div>
 
+        {/* Context label */}
+        {contextLabel && parseInt(offset) === 0 && (
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+            {contextLabel}
+          </p>
+        )}
+
         {/* Large action-oriented status line */}
-        <p className={`text-lg font-bold font-heading leading-snug ${textColor}`}>
-          {dryClockResult.outputString}
+        <p className={`text-lg font-bold font-heading leading-snug ${finalTextColor}`}>
+          {showOutput}
         </p>
 
-        {dryClockResult.isActiveRain && (
+        {/* Active rain from algorithm (only when no anon override) */}
+        {!overrideOutput && dryClockResult.isActiveRain && (
           <p className="text-xs text-destructive/80">
             Active rain detected. Forecast will update as conditions change.
           </p>
@@ -570,6 +653,21 @@ function DryClockForecast({ weatherData, court, latestReport }: {
           </div>
         )}
       </div>
+
+      {/* Home Team Prep — effort tags from anonymous report */}
+      {hasRecentReport && latestReport && latestReport.hindrances && latestReport.hindrances.length > 0 && latestReport.hindrances[0] !== "" && parseInt(offset) === 0 && (
+        <div className="bg-card rounded-lg p-4 border border-border space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Home Team Prep</p>
+          <div className="flex flex-wrap gap-2">
+            {latestReport.hindrances.map((tag: string) => (
+              <Badge key={tag} variant="outline" className="text-xs px-3 py-1 border-border">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Community report — {reportAgeText}</p>
+        </div>
+      )}
     </div>
   );
 }
