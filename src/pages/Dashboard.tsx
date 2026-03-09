@@ -87,6 +87,7 @@ function CourtCard({
   forecastScore,
   currentRain1h,
   splitStatus,
+  todayReportCount,
 }: {
   court: SovereignCourt;
   report: Report | null;
