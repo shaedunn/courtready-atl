@@ -499,6 +499,10 @@ export default function Dashboard() {
             renderCard={renderCard}
           />
         )}
+
+        <div className="flex justify-center pt-2 pb-4">
+          <RequestCourtSheet />
+        </div>
       </main>
     </div>
   );
