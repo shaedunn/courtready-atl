@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { queryClient } from "@/App";
+import { CheckCircle2 } from "lucide-react";
+
+const PINNED_KEY = "courtready-pinned";
+function getPinnedIds(): string[] {
+  try { return JSON.parse(localStorage.getItem(PINNED_KEY) || "[]"); } catch { return []; }
+}
 
 const EFFORT_OPTIONS = [
   "Squeegeeing",
@@ -35,8 +41,10 @@ function generateSlug(): string {
 const CAPTAIN_USER_ID = "placeholder-all-access";
 
 export default function CaptainDashboard() {
+  const pinnedIds = useMemo(() => getPinnedIds(), []);
   const [selectedCourt, setSelectedCourt] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [publishedStatus, setPublishedStatus] = useState<string | null>(null);
   const [effortTags, setEffortTags] = useState<string[]>([]);
   const [captainNote, setCaptainNote] = useState("");
   const [captainName, setCaptainName] = useState(
@@ -60,8 +68,12 @@ export default function CaptainDashboard() {
     },
   });
 
-  // Auto-select first facility
-  const activeCourt = selectedCourt || courts?.[0]?.id || "";
+  // Auto-select: first pinned court, then first court overall
+  const activeCourt = selectedCourt || (courts && pinnedIds.length > 0 ? courts.find(c => pinnedIds.includes(c.id))?.id : undefined) || courts?.[0]?.id || "";
+
+  // Split courts into pinned and unpinned
+  const pinnedCourts = useMemo(() => courts?.filter(c => pinnedIds.includes(c.id)) ?? [], [courts, pinnedIds]);
+  const unpinnedCourts = useMemo(() => courts?.filter(c => !pinnedIds.includes(c.id)) ?? [], [courts, pinnedIds]);
 
   const toggleEffort = (tag: string) => {
     setEffortTags((prev) =>
@@ -94,9 +106,8 @@ export default function CaptainDashboard() {
       });
       if (error) throw error;
       toast({ title: `Status: ${ACTION_LABELS[selectedStatus]}` });
+      setPublishedStatus(selectedStatus);
       setCaptainNote("");
-      setSelectedStatus(null);
-      setEffortTags([]);
       queryClient.invalidateQueries({ queryKey: ["beacon-status"] });
       queryClient.invalidateQueries({ queryKey: ["beacon-timeline"] });
     } catch (e: any) {
@@ -144,10 +155,26 @@ export default function CaptainDashboard() {
           Your Facilities
         </label>
         <div className="flex flex-wrap gap-2">
-          {courts?.map((c) => (
+          {pinnedCourts.map((c) => (
             <button
               key={c.id}
-              onClick={() => setSelectedCourt(c.id)}
+              onClick={() => { setSelectedCourt(c.id); setPublishedStatus(null); setSelectedStatus(null); }}
+              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
+                activeCourt === c.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}
+            >
+              📌 {c.name}
+            </button>
+          ))}
+          {pinnedCourts.length > 0 && unpinnedCourts.length > 0 && (
+            <div className="w-full border-t border-border my-1" />
+          )}
+          {unpinnedCourts.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => { setSelectedCourt(c.id); setPublishedStatus(null); setSelectedStatus(null); }}
               className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
                 activeCourt === c.id
                   ? "bg-primary text-primary-foreground border-primary"
@@ -179,18 +206,29 @@ export default function CaptainDashboard() {
 
       <Separator />
 
+      {/* Published confirmation */}
+      {publishedStatus && (
+        <div className="flex items-center gap-2 bg-court-green/10 rounded-lg p-3 border border-court-green/20">
+          <CheckCircle2 className="w-5 h-5 text-court-green flex-shrink-0" />
+          <p className="text-sm font-medium text-court-green">
+            Published: {ACTION_LABELS[publishedStatus]}
+          </p>
+        </div>
+      )}
+
       {/* Match Status Section */}
       <div className="space-y-3">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
           Match Status
         </label>
         {STATUS_BUTTONS.map((btn) => {
-          const isSelected = selectedStatus === btn.value;
-          const isDisabled = selectedStatus !== null && !isSelected;
+          const isPublished = publishedStatus === btn.value;
+          const isSelected = selectedStatus === btn.value || isPublished;
+          const isDisabled = (selectedStatus !== null || publishedStatus !== null) && !isSelected;
           return (
             <button
               key={btn.value}
-              disabled={submitting}
+              disabled={submitting || !!publishedStatus}
               onClick={() => toggleStatus(btn.value)}
               className={`w-full py-4 rounded-xl font-bold text-lg transition-all border-2 ${
                 isSelected
@@ -227,15 +265,26 @@ export default function CaptainDashboard() {
         />
       </div>
 
-      {/* Publish Button */}
-      <Button
-        className="w-full"
-        size="lg"
-        disabled={submitting || !selectedStatus}
-        onClick={publishStatus}
-      >
-        Publish Status
-      </Button>
+      {/* Publish / Reset Button */}
+      {publishedStatus ? (
+        <Button
+          className="w-full"
+          size="lg"
+          variant="outline"
+          onClick={() => { setPublishedStatus(null); setSelectedStatus(null); setEffortTags([]); }}
+        >
+          Reset — Publish New Status
+        </Button>
+      ) : (
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={submitting || !selectedStatus}
+          onClick={publishStatus}
+        >
+          Publish Status
+        </Button>
+      )}
 
       <Separator />
 
