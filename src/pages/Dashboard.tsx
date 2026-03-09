@@ -350,12 +350,12 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <OnboardingModal />
-      <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4 pt-safe">
+      <header className="sticky top-0 z-10 bg-accent court-texture border-b border-accent/20 px-4 pt-safe">
         <div className="max-w-lg mx-auto py-4">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Droplets className="w-5 h-5 text-lime" />
-              <h1 className="text-lg font-extrabold tracking-tight text-accent-foreground">
+              <h1 className="text-lg font-extrabold tracking-tight text-accent-foreground font-heading">
                 CourtReady <span className="text-lime">ATL</span>
               </h1>
               {isCaptain && (
