@@ -136,7 +136,7 @@ export default function CaptainDashboard() {
 
   return (
     <div className="min-h-screen bg-background p-4 max-w-lg mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Captain's Trigger</h1>
+      <h1 className="text-2xl font-bold text-foreground font-heading">Captain's Trigger</h1>
 
       {/* Facility (auto-assigned, tap to switch) */}
       <div>
