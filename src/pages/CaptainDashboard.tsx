@@ -155,10 +155,26 @@ export default function CaptainDashboard() {
           Your Facilities
         </label>
         <div className="flex flex-wrap gap-2">
-          {courts?.map((c) => (
+          {pinnedCourts.map((c) => (
             <button
               key={c.id}
-              onClick={() => setSelectedCourt(c.id)}
+              onClick={() => { setSelectedCourt(c.id); setPublishedStatus(null); setSelectedStatus(null); }}
+              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
+                activeCourt === c.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}
+            >
+              📌 {c.name}
+            </button>
+          ))}
+          {pinnedCourts.length > 0 && unpinnedCourts.length > 0 && (
+            <div className="w-full border-t border-border my-1" />
+          )}
+          {unpinnedCourts.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => { setSelectedCourt(c.id); setPublishedStatus(null); setSelectedStatus(null); }}
               className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
                 activeCourt === c.id
                   ? "bg-primary text-primary-foreground border-primary"
