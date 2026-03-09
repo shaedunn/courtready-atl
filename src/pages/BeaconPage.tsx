@@ -4,9 +4,9 @@ import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 
 const STATUS_MAP: Record<string, { bg: string; label: string }> = {
-  green: { bg: "#22c55e", label: "LOAD THE CAR" },
-  yellow: { bg: "#eab308", label: "CAPTAIN'S CALL" },
-  red: { bg: "#ef4444", label: "STAY HOME" },
+  green: { bg: "#22c55e", label: "MATCH IS A GO — On-Time Start" },
+  yellow: { bg: "#eab308", label: "DELAYED — Captain's Call Pending" },
+  red: { bg: "#ef4444", label: "MATCH POSTPONED" },
 };
 
 export default function BeaconPage() {
@@ -86,7 +86,7 @@ export default function BeaconPage() {
         className="w-full py-16 px-4 flex flex-col items-center justify-center text-center"
         style={{ backgroundColor: cfg.bg }}
       >
-        <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-lg">
+        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg leading-tight">
           {cfg.label}
         </h1>
         <p className="mt-3 text-lg text-white/80 font-medium">
@@ -97,17 +97,34 @@ export default function BeaconPage() {
         </p>
       </div>
 
-      {/* Effort tags */}
-      {latestStatus?.effort_tags?.length > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center px-4 py-3">
-          {latestStatus.effort_tags.map((tag: string) => (
-            <span
-              key={tag}
-              className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium"
-            >
-              {tag}
-            </span>
-          ))}
+      {/* Home Team Prep Card */}
+      {(latestStatus?.effort_tags?.length > 0 || latestStatus?.captain_note) && (
+        <div className="px-4 py-5 max-w-lg mx-auto w-full">
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Home Team Prep
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-3">
+              Live coordination from the home team.
+            </p>
+            {latestStatus.effort_tags?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {latestStatus.effort_tags.map((tag: string) => (
+                  <span
+                    key={tag}
+                    className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            {latestStatus.captain_note && (
+              <p className="text-sm text-card-foreground">
+                {latestStatus.captain_note}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
