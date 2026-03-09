@@ -5,6 +5,7 @@ import { supabase, fetchWeather, type SovereignCourt, type Observation, getDispl
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
 import { formatDryTime, calculateSqueegeeDryTime, getCourtStatus, STATUS_CONFIG, getVerifiedAgoText } from "@/lib/courts";
+import { computeDryClock, getReportTier, getReportAgeText, type DryClockResult, type ReportTier } from "@/lib/dry-clock";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
