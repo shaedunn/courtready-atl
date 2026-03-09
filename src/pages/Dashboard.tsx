@@ -378,7 +378,7 @@ export default function Dashboard() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-foreground/50" />
             <input
               type="text"
-              placeholder="Search courts..."
+              placeholder="Search courts — e.g., Bitsy Grant"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-accent-foreground/10 text-accent-foreground placeholder:text-accent-foreground/40 rounded-lg pl-10 pr-4 py-2.5 text-sm border border-accent-foreground/10 focus:outline-none focus:ring-2 focus:ring-lime/50 transition-all"
