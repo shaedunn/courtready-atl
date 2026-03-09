@@ -60,6 +60,7 @@ export type SovereignCourt = {
   longitude: number | null;
   sun_exposure: number;
   drainage: number;
+  dna_note: string | null;
 };
 
 export type Observation = {
