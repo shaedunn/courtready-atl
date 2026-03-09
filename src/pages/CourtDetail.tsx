@@ -512,7 +512,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
 
         {/* Conditional slip risk warning */}
         {(() => {
-          const dnaNote = (court as any).dna_note ?? "";
+          const dnaNote = court.dna_note ?? "";
           const slipKeywords = /slip|hazard|moss|algae|caution/i;
           const hasSlipRisk = slipKeywords.test(dnaNote);
           const isDamp = (weatherData.humidity ?? 0) > 70 || (weatherData.rain_1h ?? 0) > 0 || (latestReport && latestReport.rainfall > 0);
