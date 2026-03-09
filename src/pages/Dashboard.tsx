@@ -387,9 +387,6 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Pilot Ticker */}
-      {!courtsError && !courtsLoading && <PilotTicker />}
-
       <main className="max-w-lg mx-auto px-4 py-4 space-y-2">
         {courtsLoading ? (
           <>
