@@ -151,6 +151,50 @@ function CourtCard({
   );
 }
 
+/* ─── Collapsible Court List ─── */
+function CollapsibleCourtList({
+  pinnedCourts,
+  unpinnedCourts,
+  renderCard,
+}: {
+  pinnedCourts: SovereignCourt[];
+  unpinnedCourts: SovereignCourt[];
+  renderCard: (court: SovereignCourt, isPinned: boolean) => React.ReactNode;
+}) {
+  const hasPinned = pinnedCourts.length > 0;
+  const [showAll, setShowAll] = useState(!hasPinned);
+
+  if (!hasPinned) {
+    return (
+      <>
+        <p className="text-xs text-muted-foreground py-2 text-center">
+          📌 Pin your home courts for quick access.
+        </p>
+        {unpinnedCourts.map((court) => renderCard(court, false))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-1">Pinned</p>
+      {pinnedCourts.map((court) => renderCard(court, true))}
+
+      {unpinnedCourts.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowAll((p) => !p)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 mt-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-sm font-medium text-muted-foreground"
+          >
+            {showAll ? "Hide all courts" : `Show all courts (${unpinnedCourts.length})`}
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAll ? "rotate-180" : ""}`} />
+          </button>
+          {showAll && unpinnedCourts.map((court) => renderCard(court, false))}
+        </>
+      )}
+    </>
+  );
+}
 
 function getTimeAgo(dateStr: string): string {
   const mins = Math.round((Date.now() - new Date(dateStr).getTime()) / 60000);
