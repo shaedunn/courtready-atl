@@ -510,6 +510,22 @@ function DryClockForecast({ weatherData, court, latestReport }: {
           </p>
         )}
 
+        {/* Conditional slip risk warning */}
+        {(() => {
+          const dnaNote = court.dna_note ?? "";
+          const slipKeywords = /slip|hazard|moss|algae|caution/i;
+          const hasSlipRisk = slipKeywords.test(dnaNote);
+          const isDamp = (weatherData.humidity ?? 0) > 70 || (weatherData.rain_1h ?? 0) > 0 || (latestReport && latestReport.rainfall > 0);
+          if (hasSlipRisk && isDamp) {
+            return (
+              <p className="text-xs text-court-amber flex items-center gap-1.5">
+                ⚠️ {court.name}: Known slip risk when damp — use caution.
+              </p>
+            );
+          }
+          return null;
+        })()}
+
         {/* Expandable calculation details */}
         <button
           onClick={() => setShowDetails(!showDetails)}
@@ -850,15 +866,6 @@ export default function CourtDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        {subCourts && subCourts.filter(sc => sc.hazard_description).map(sc => (
-          <div key={sc.id} className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
-            <ShieldAlert className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-semibold text-destructive">Court {sc.court_number} — Safety Hazard</p>
-              <p className="text-xs text-destructive/80">{sc.hazard_description}</p>
-            </div>
-          </div>
-        ))}
 
         <div data-tour="pulse">
           <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={currentRain1h > 0} forecastScore={forecastNowScore} currentRain1h={currentRain1h} />
@@ -919,6 +926,14 @@ export default function CourtDetail() {
         <div data-tour="sub-court-editor">
           <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
         </div>
+
+        {/* Court Profile (DNA note) */}
+        {court.dna_note && (
+          <div className="bg-card rounded-lg p-5 border border-border">
+            <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-2">Court Profile</h3>
+            <p className="text-sm text-foreground/80 leading-relaxed">{court.dna_note}</p>
+          </div>
+        )}
 
         <div data-tour="hazard-button">
           <CaptainsLog court={court} />
