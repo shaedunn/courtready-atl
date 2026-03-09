@@ -927,6 +927,14 @@ export default function CourtDetail() {
           <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
         </div>
 
+        {/* Court Profile (DNA note) */}
+        {court.dna_note && (
+          <div className="bg-card rounded-lg p-5 border border-border">
+            <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-2">Court Profile</h3>
+            <p className="text-sm text-foreground/80 leading-relaxed">{court.dna_note}</p>
+          </div>
+        )}
+
         <div data-tour="hazard-button">
           <CaptainsLog court={court} />
         </div>
