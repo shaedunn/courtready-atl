@@ -86,7 +86,7 @@ export default function BeaconPage() {
         className="w-full py-16 px-4 flex flex-col items-center justify-center text-center"
         style={{ backgroundColor: cfg.bg }}
       >
-        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg leading-tight">
+        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg leading-tight font-heading">
           {cfg.label}
         </h1>
         <p className="mt-3 text-lg text-white/80 font-medium">
