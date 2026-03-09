@@ -95,7 +95,7 @@ function StatusVerification({ courtId, reportId }: { courtId: string; reportId: 
 
   if (needsName) return <DisplayNamePrompt onConfirm={handleNameConfirmed} />;
 
-  const btnClass = "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium border transition-all active:scale-[0.98] disabled:opacity-50";
+  const btnClass = "flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 rounded-lg text-xs font-medium border transition-all active:scale-[0.98] disabled:opacity-50";
 
   return (
     <div className="space-y-2">
