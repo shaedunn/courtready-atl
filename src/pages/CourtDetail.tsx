@@ -837,6 +837,12 @@ export default function CourtDetail() {
           <DryClockForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
 
+        {/* Anonymous Condition Report */}
+        <ConditionReportFlow courtId={court.id} />
+
+        {/* Today's report count */}
+        <TodayReportCount courtId={court.id} />
+
         {rainResetActive && (
           <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
             <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
