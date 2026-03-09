@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert } from "lucide-react";
+import ConditionReportFlow from "@/components/ConditionReportFlow";
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
@@ -557,6 +558,37 @@ function DryClockForecast({ weatherData, court, latestReport }: {
   );
 }
 
+/* ─── Today's Report Count ─── */
+function TodayReportCount({ courtId }: { courtId: string }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const { data: count = 0 } = useQuery({
+    queryKey: ["today-report-count", courtId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("reports")
+        .select("*", { count: "exact", head: true })
+        .eq("court_id", courtId)
+        .gte("created_at", today.toISOString());
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
+  });
+
+  const text =
+    count === 0
+      ? "No reports yet today — be the first"
+      : count === 1
+        ? "1 player reported conditions today"
+        : `${count} players reported conditions today`;
+
+  return (
+    <p className="text-xs text-muted-foreground text-center py-1">{text}</p>
+  );
+}
+
 function StatusCardSkeleton() {
   return (
     <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
@@ -835,6 +867,12 @@ export default function CourtDetail() {
         {weatherData && (
           <DryClockForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
+
+        {/* Anonymous Condition Report */}
+        <ConditionReportFlow courtId={court.id} />
+
+        {/* Today's report count */}
+        <TodayReportCount courtId={court.id} />
 
         {rainResetActive && (
           <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">

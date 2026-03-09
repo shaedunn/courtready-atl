@@ -87,6 +87,7 @@ function CourtCard({
   forecastScore,
   currentRain1h,
   splitStatus,
+  todayReportCount,
 }: {
   court: SovereignCourt;
   report: Report | null;
@@ -97,6 +98,7 @@ function CourtCard({
   forecastScore?: number | null;
   currentRain1h?: number;
   splitStatus?: { verified: number; total: number; verifierName: string; verifiedAgo: string; allVerified: boolean } | null;
+  todayReportCount?: number;
 }) {
   const status = getCourtStatus(report, observation, null, undefined, forecastScore, currentRain1h);
   const config = STATUS_CONFIG[status];
@@ -126,6 +128,9 @@ function CourtCard({
               <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
               <span className="text-xs text-muted-foreground truncate">{court.location}</span>
             </div>
+            {todayReportCount !== undefined && todayReportCount > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">{todayReportCount} {todayReportCount === 1 ? "report" : "reports"} today</p>
+            )}
             {isGold && splitStatus && (
               <p className="text-[10px] text-amber-600 mt-1">
                 Verified by {splitStatus.verifierName} · {splitStatus.verifiedAgo}
@@ -294,6 +299,31 @@ export default function Dashboard() {
     placeholderData: keepPreviousData,
   });
 
+  // Today's report counts per court
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  }, []);
+
+  const { data: todayReportCounts = {} } = useQuery({
+    queryKey: ["today-report-counts", todayStart],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reports")
+        .select("court_id")
+        .gte("created_at", todayStart);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const r of data) {
+        counts[r.court_id] = (counts[r.court_id] || 0) + 1;
+      }
+      return counts;
+    },
+    refetchInterval: 30000,
+    placeholderData: keepPreviousData,
+  });
+
   // Shared weather query for Atlanta (use first court with coords)
   const weatherCoord = courts.find((c) => c.latitude && c.longitude);
   const { data: sharedWeather } = useQuery({
@@ -387,6 +417,7 @@ export default function Dashboard() {
         forecastScore={forecastScores[court.id] ?? null}
         currentRain1h={currentRain1h}
         splitStatus={splitStatus}
+        todayReportCount={todayReportCounts[court.id]}
       />
     );
   };
