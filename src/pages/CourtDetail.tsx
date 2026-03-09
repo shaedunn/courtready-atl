@@ -832,8 +832,8 @@ export default function CourtDetail() {
           <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={currentRain1h > 0} forecastScore={forecastNowScore} currentRain1h={currentRain1h} />
         </div>
 
-        {weatherData?.hourly && weatherData.hourly.length > 0 && (
-          <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
+        {weatherData && (
+          <DryClockForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
 
         {rainResetActive && (
