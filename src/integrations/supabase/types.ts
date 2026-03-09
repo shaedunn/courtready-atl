@@ -138,6 +138,33 @@ export type Database = {
         }
         Relationships: []
       }
+      facility_requests: {
+        Row: {
+          address: string
+          created_at: string
+          facility_name: string
+          id: string
+          requester_email: string | null
+          status: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          facility_name: string
+          id?: string
+          requester_email?: string | null
+          status?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          facility_name?: string
+          id?: string
+          requester_email?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       matches: {
         Row: {
           away_team: string

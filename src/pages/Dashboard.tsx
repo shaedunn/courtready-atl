@@ -8,6 +8,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCourtStatus, getVerifiedAgoText, STATUS_CONFIG } from "@/lib/courts";
 import { Badge } from "@/components/ui/badge";
+import RequestCourtSheet from "@/components/RequestCourtSheet";
 
 type Report = Tables<"reports">;
 
@@ -498,6 +499,10 @@ export default function Dashboard() {
             renderCard={renderCard}
           />
         )}
+
+        <div className="flex justify-center pt-2 pb-4">
+          <RequestCourtSheet />
+        </div>
       </main>
     </div>
   );
