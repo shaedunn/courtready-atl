@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle, Shield } from "lucide-react";
+import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle, Shield, ChevronDown } from "lucide-react";
 import OnboardingModal, { isContributor } from "@/components/OnboardingModal";
 import { useNavigate } from "react-router-dom";
 import { supabase, fetchWeather, type SovereignCourt, type Observation } from "@/lib/supabase";
