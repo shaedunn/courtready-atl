@@ -126,6 +126,9 @@ function CourtCard({
               <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
               <span className="text-xs text-muted-foreground truncate">{court.location}</span>
             </div>
+            {todayReportCount !== undefined && todayReportCount > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">{todayReportCount} {todayReportCount === 1 ? "report" : "reports"} today</p>
+            )}
             {isGold && splitStatus && (
               <p className="text-[10px] text-amber-600 mt-1">
                 Verified by {splitStatus.verifierName} · {splitStatus.verifiedAgo}
