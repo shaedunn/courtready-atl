@@ -492,10 +492,10 @@ function DryClockForecast({ weatherData, court, latestReport }: {
             Dry-Clock Forecast
           </span>
           <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
-            <ToggleGroupItem value="0" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
-            <ToggleGroupItem value="1" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
-            <ToggleGroupItem value="2" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
-            <ToggleGroupItem value="3" className="text-xs px-3 py-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
+            <ToggleGroupItem value="0" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
+            <ToggleGroupItem value="1" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
+            <ToggleGroupItem value="2" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
+            <ToggleGroupItem value="3" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
           </ToggleGroup>
         </div>
 
