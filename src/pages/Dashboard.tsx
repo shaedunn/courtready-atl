@@ -392,6 +392,7 @@ export default function Dashboard() {
         forecastScore={forecastScores[court.id] ?? null}
         currentRain1h={currentRain1h}
         splitStatus={splitStatus}
+        todayReportCount={todayReportCounts[court.id]}
       />
     );
   };
