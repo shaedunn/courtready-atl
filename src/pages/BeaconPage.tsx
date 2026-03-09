@@ -112,7 +112,7 @@ export default function BeaconPage() {
                 {latestStatus.effort_tags.map((tag: string) => (
                   <span
                     key={tag}
-                    className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium"
+                    className="px-4 py-2.5 min-h-[44px] rounded-full bg-muted text-muted-foreground text-xs font-medium inline-flex items-center"
                   >
                     {tag}
                   </span>

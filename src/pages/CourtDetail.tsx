@@ -479,7 +479,7 @@ function DryClockForecast({ weatherData, court, latestReport }: {
       {reportTier === "tier2" && (
         <div className="bg-card rounded-lg p-3 border border-border flex items-center justify-between">
           <p className="text-xs text-muted-foreground">Forecast — no recent reports</p>
-          <a href="/captain" className="text-[11px] text-primary hover:underline font-medium">
+          <a href="/captain" className="text-[11px] text-primary hover:underline font-medium min-h-[44px] flex items-center py-2">
             On site? Update in 3 taps →
           </a>
         </div>

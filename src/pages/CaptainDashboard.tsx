@@ -249,7 +249,7 @@ export default function CaptainDashboard() {
             <button
               key={tag}
               onClick={() => toggleEffort(tag)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
                 effortTags.includes(tag)
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-muted text-muted-foreground border-border"
