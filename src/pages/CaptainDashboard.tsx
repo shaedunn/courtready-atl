@@ -265,15 +265,26 @@ export default function CaptainDashboard() {
         />
       </div>
 
-      {/* Publish Button */}
-      <Button
-        className="w-full"
-        size="lg"
-        disabled={submitting || !selectedStatus}
-        onClick={publishStatus}
-      >
-        Publish Status
-      </Button>
+      {/* Publish / Reset Button */}
+      {publishedStatus ? (
+        <Button
+          className="w-full"
+          size="lg"
+          variant="outline"
+          onClick={() => { setPublishedStatus(null); setSelectedStatus(null); setEffortTags([]); }}
+        >
+          Reset — Publish New Status
+        </Button>
+      ) : (
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={submitting || !selectedStatus}
+          onClick={publishStatus}
+        >
+          Publish Status
+        </Button>
+      )}
 
       <Separator />
 
