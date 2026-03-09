@@ -510,6 +510,22 @@ function DryClockForecast({ weatherData, court, latestReport }: {
           </p>
         )}
 
+        {/* Conditional slip risk warning */}
+        {(() => {
+          const dnaNote = (court as any).dna_note ?? "";
+          const slipKeywords = /slip|hazard|moss|algae|caution/i;
+          const hasSlipRisk = slipKeywords.test(dnaNote);
+          const isDamp = (weatherData.humidity ?? 0) > 70 || (weatherData.rain_1h ?? 0) > 0 || (latestReport && latestReport.rainfall > 0);
+          if (hasSlipRisk && isDamp) {
+            return (
+              <p className="text-xs text-court-amber flex items-center gap-1.5">
+                ⚠️ {court.name}: Known slip risk when damp — use caution.
+              </p>
+            );
+          }
+          return null;
+        })()}
+
         {/* Expandable calculation details */}
         <button
           onClick={() => setShowDetails(!showDetails)}
