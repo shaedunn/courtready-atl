@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import CourtDetail from "./pages/CourtDetail";
 import FacilityAdmin from "./pages/FacilityAdmin";
 import Instructions from "./pages/Instructions";
+import BeaconPage from "./pages/BeaconPage";
+import CaptainDashboard from "./pages/CaptainDashboard";
 import NotFound from "./pages/NotFound";
 import SplashScreen from "./components/SplashScreen";
 
@@ -42,6 +44,8 @@ const App = () => {
             <Route path="/court/:id" element={<CourtDetail />} />
             <Route path="/court/:id/admin" element={<FacilityAdmin />} />
             <Route path="/instructions" element={<Instructions />} />
+            <Route path="/status/:share_slug" element={<BeaconPage />} />
+            <Route path="/captain" element={<CaptainDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

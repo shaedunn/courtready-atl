@@ -46,11 +46,55 @@ export type Database = {
           },
         ]
       }
+      court_status: {
+        Row: {
+          action_label: string | null
+          captain_note: string | null
+          court_id: string
+          created_at: string
+          created_by: string | null
+          effort_tags: string[] | null
+          id: string
+          status: string
+        }
+        Insert: {
+          action_label?: string | null
+          captain_note?: string | null
+          court_id: string
+          created_at?: string
+          created_by?: string | null
+          effort_tags?: string[] | null
+          id?: string
+          status: string
+        }
+        Update: {
+          action_label?: string | null
+          captain_note?: string | null
+          court_id?: string
+          created_at?: string
+          created_by?: string | null
+          effort_tags?: string[] | null
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_status_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courts: {
         Row: {
           court_count: number
           created_at: string
+          debris_factor: string | null
+          dna_note: string | null
           drainage: number
+          drainage_profile: string | null
           id: string
           latitude: number | null
           location: string
@@ -63,7 +107,10 @@ export type Database = {
         Insert: {
           court_count?: number
           created_at?: string
+          debris_factor?: string | null
+          dna_note?: string | null
           drainage?: number
+          drainage_profile?: string | null
           id?: string
           latitude?: number | null
           location: string
@@ -76,7 +123,10 @@ export type Database = {
         Update: {
           court_count?: number
           created_at?: string
+          debris_factor?: string | null
+          dna_note?: string | null
           drainage?: number
+          drainage_profile?: string | null
           id?: string
           latitude?: number | null
           location?: string
@@ -87,6 +137,44 @@ export type Database = {
           surface?: string
         }
         Relationships: []
+      }
+      matches: {
+        Row: {
+          away_team: string
+          court_id: string
+          created_at: string
+          home_team: string
+          id: string
+          match_time: string
+          share_slug: string
+        }
+        Insert: {
+          away_team: string
+          court_id: string
+          created_at?: string
+          home_team: string
+          id?: string
+          match_time: string
+          share_slug: string
+        }
+        Update: {
+          away_team?: string
+          court_id?: string
+          created_at?: string
+          home_team?: string
+          id?: string
+          match_time?: string
+          share_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       observations: {
         Row: {
