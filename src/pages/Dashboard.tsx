@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle, Shield } from "lucide-react";
+import { Search, Droplets, MapPin, Pin, BookOpen, AlertTriangle, Shield, ChevronDown } from "lucide-react";
 import OnboardingModal, { isContributor } from "@/components/OnboardingModal";
 import { useNavigate } from "react-router-dom";
 import { supabase, fetchWeather, type SovereignCourt, type Observation } from "@/lib/supabase";
@@ -121,7 +121,7 @@ function CourtCard({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h2 className="font-semibold text-sm text-card-foreground truncate">{court.name}</h2>
+            <h2 className="font-semibold text-sm text-card-foreground truncate font-heading">{court.name}</h2>
             <div className="flex items-center gap-1 mt-1">
               <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
               <span className="text-xs text-muted-foreground truncate">{court.location}</span>
@@ -151,49 +151,48 @@ function CourtCard({
   );
 }
 
-/* ─── Pilot Ticker ─── */
-function PilotTicker() {
-  const { data: recentActivity = [] } = useQuery({
-    queryKey: ["pilot-ticker"],
-    queryFn: async () => {
-      const [{ data: reports }, { data: observations }] = await Promise.all([
-        supabase.from("reports").select("court_id, created_at, rainfall").order("created_at", { ascending: false }).limit(3),
-        supabase.from("observations").select("court_id, created_at, status, display_name").order("created_at", { ascending: false }).limit(3),
-      ]);
-      const items: { text: string; time: string }[] = [];
-      for (const r of reports ?? []) {
-        const ago = getTimeAgo(r.created_at);
-        items.push({ text: `📋 Report: ${r.rainfall}" rain`, time: ago });
-      }
-      for (const o of observations ?? []) {
-        const ago = getTimeAgo(o.created_at);
-        const label = o.status === "playable" ? "✅ Playable" : o.status === "still_wet" ? "💧 Still Wet" : "🧹 Squeegee";
-        items.push({ text: `${label} — ${o.display_name}`, time: ago });
-      }
-      items.sort((a, b) => a.time.localeCompare(b.time));
-      items.unshift({ text: "🎯 Pilot Phase: 14 Facilities | Goal: 1,000 Verified Reports", time: "" });
-      return items.slice(0, 6);
-    },
-    refetchInterval: 30000,
-  });
+/* ─── Collapsible Court List ─── */
+function CollapsibleCourtList({
+  pinnedCourts,
+  unpinnedCourts,
+  renderCard,
+}: {
+  pinnedCourts: SovereignCourt[];
+  unpinnedCourts: SovereignCourt[];
+  renderCard: (court: SovereignCourt, isPinned: boolean) => React.ReactNode;
+}) {
+  const hasPinned = pinnedCourts.length > 0;
+  const [showAll, setShowAll] = useState(!hasPinned);
 
-  if (recentActivity.length === 0) return null;
+  if (!hasPinned) {
+    return (
+      <>
+        <p className="text-xs text-muted-foreground py-2 text-center">
+          📌 Pin your home courts for quick access.
+        </p>
+        {unpinnedCourts.map((court) => renderCard(court, false))}
+      </>
+    );
+  }
 
   return (
-    <div className="overflow-hidden bg-accent/5 border-b border-border">
-      <div className="flex animate-scroll-x gap-8 px-4 py-1.5 whitespace-nowrap">
-        {recentActivity.map((item, i) => (
-         <span key={i} className="text-[11px] text-muted-foreground flex-shrink-0">
-            {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
-          </span>
-        ))}
-        {recentActivity.map((item, i) => (
-         <span key={`dup-${i}`} className="text-[11px] text-muted-foreground flex-shrink-0">
-            {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
-          </span>
-        ))}
-      </div>
-    </div>
+    <>
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-1">Pinned</p>
+      {pinnedCourts.map((court) => renderCard(court, true))}
+
+      {unpinnedCourts.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowAll((p) => !p)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 mt-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-sm font-medium text-muted-foreground"
+          >
+            {showAll ? "Hide all courts" : `Show all courts (${unpinnedCourts.length})`}
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAll ? "rotate-180" : ""}`} />
+          </button>
+          {showAll && unpinnedCourts.map((court) => renderCard(court, false))}
+        </>
+      )}
+    </>
   );
 }
 
@@ -395,12 +394,12 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <OnboardingModal />
-      <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4 pt-safe">
+      <header className="sticky top-0 z-10 bg-accent court-texture border-b border-accent/20 px-4 pt-safe">
         <div className="max-w-lg mx-auto py-4">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Droplets className="w-5 h-5 text-lime" />
-              <h1 className="text-lg font-extrabold tracking-tight text-accent-foreground">
+              <h1 className="text-lg font-extrabold tracking-tight text-accent-foreground font-heading">
                 CourtReady <span className="text-lime">ATL</span>
               </h1>
               {isCaptain && (
@@ -423,7 +422,7 @@ export default function Dashboard() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-foreground/50" />
             <input
               type="text"
-              placeholder="Search courts..."
+              placeholder="Search courts — e.g., Bitsy Grant"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-accent-foreground/10 text-accent-foreground placeholder:text-accent-foreground/40 rounded-lg pl-10 pr-4 py-2.5 text-sm border border-accent-foreground/10 focus:outline-none focus:ring-2 focus:ring-lime/50 transition-all"
@@ -431,9 +430,6 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
-
-      {/* Pilot Ticker */}
-      {!courtsError && !courtsLoading && <PilotTicker />}
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-2">
         {courtsLoading ? (
@@ -465,18 +461,11 @@ export default function Dashboard() {
         ) : filtered.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-12">No courts match "{search}"</p>
         ) : (
-          <>
-            {pinnedCourts.length > 0 && (
-              <>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-1">Pinned</p>
-                {pinnedCourts.map((court) => renderCard(court, true))}
-                {unpinnedCourts.length > 0 && (
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-3">All Courts</p>
-                )}
-              </>
-            )}
-            {unpinnedCourts.map((court) => renderCard(court, false))}
-          </>
+          <CollapsibleCourtList
+            pinnedCourts={pinnedCourts}
+            unpinnedCourts={unpinnedCourts}
+            renderCard={renderCard}
+          />
         )}
       </main>
     </div>

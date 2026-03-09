@@ -136,7 +136,7 @@ export default function CaptainDashboard() {
 
   return (
     <div className="min-h-screen bg-background p-4 max-w-lg mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Captain's Trigger</h1>
+      <h1 className="text-2xl font-bold text-foreground font-heading">Captain's Trigger</h1>
 
       {/* Facility (auto-assigned, tap to switch) */}
       <div>
@@ -265,7 +265,7 @@ export default function CaptainDashboard() {
 
       {/* Create Match + Share Link */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-lg font-semibold text-foreground font-heading">
           Create Match + Share Link
         </h2>
         <div className="space-y-3">
