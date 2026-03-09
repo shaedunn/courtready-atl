@@ -299,6 +299,31 @@ export default function Dashboard() {
     placeholderData: keepPreviousData,
   });
 
+  // Today's report counts per court
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  }, []);
+
+  const { data: todayReportCounts = {} } = useQuery({
+    queryKey: ["today-report-counts", todayStart],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reports")
+        .select("court_id")
+        .gte("created_at", todayStart);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const r of data) {
+        counts[r.court_id] = (counts[r.court_id] || 0) + 1;
+      }
+      return counts;
+    },
+    refetchInterval: 30000,
+    placeholderData: keepPreviousData,
+  });
+
   // Shared weather query for Atlanta (use first court with coords)
   const weatherCoord = courts.find((c) => c.latitude && c.longitude);
   const { data: sharedWeather } = useQuery({
