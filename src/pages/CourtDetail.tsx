@@ -849,7 +849,7 @@ export default function CourtDetail() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-accent border-b border-accent/20 px-4">
         <div className="max-w-lg mx-auto py-3 flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 -ml-1.5 rounded-lg hover:bg-accent/80 transition-colors">
+          <button onClick={() => navigate("/")} className="p-2.5 -ml-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
             <ArrowLeft className="w-5 h-5 text-accent-foreground" />
           </button>
           <div className="flex-1 min-w-0">
