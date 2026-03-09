@@ -417,18 +417,11 @@ export default function Dashboard() {
         ) : filtered.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-12">No courts match "{search}"</p>
         ) : (
-          <>
-            {pinnedCourts.length > 0 && (
-              <>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-1">Pinned</p>
-                {pinnedCourts.map((court) => renderCard(court, true))}
-                {unpinnedCourts.length > 0 && (
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium pt-3">All Courts</p>
-                )}
-              </>
-            )}
-            {unpinnedCourts.map((court) => renderCard(court, false))}
-          </>
+          <CollapsibleCourtList
+            pinnedCourts={pinnedCourts}
+            unpinnedCourts={unpinnedCourts}
+            renderCard={renderCard}
+          />
         )}
       </main>
     </div>

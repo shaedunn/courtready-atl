@@ -13,6 +13,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        heading: ["'Barlow Condensed'", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
