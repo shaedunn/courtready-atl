@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { queryClient } from "@/App";
+import { CheckCircle2 } from "lucide-react";
+
+const PINNED_KEY = "courtready-pinned";
+function getPinnedIds(): string[] {
+  try { return JSON.parse(localStorage.getItem(PINNED_KEY) || "[]"); } catch { return []; }
+}
 
 const EFFORT_OPTIONS = [
   "Squeegeeing",

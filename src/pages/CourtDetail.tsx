@@ -798,6 +798,34 @@ export default function CourtDetail() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [showTour, setShowTour] = useState(false);
+
+  // Realtime subscriptions for reports & court_status
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`court-${id}-realtime`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'reports', filter: `court_id=eq.${id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["latest-report", id] });
+          queryClient.invalidateQueries({ queryKey: ["latest-reports"] });
+          queryClient.invalidateQueries({ queryKey: ["today-report-count", id] });
+          queryClient.invalidateQueries({ queryKey: ["today-report-counts"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'court_status', filter: `court_id=eq.${id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["latest-report", id] });
+          queryClient.invalidateQueries({ queryKey: ["beacon-status"] });
+          queryClient.invalidateQueries({ queryKey: ["beacon-timeline"] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id, queryClient]);
   const [showCelebration, setShowCelebration] = useState(false);
 
   const { data: subCourts } = useQuery<SubCourtRow[]>({
