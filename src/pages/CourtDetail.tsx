@@ -668,7 +668,7 @@ function CaptainsLog({ court }: { court: SovereignCourt }) {
           onKeyDown={(e) => e.key === "Enter" && submitLog.mutate()}
           className="flex-1 bg-secondary text-foreground rounded-lg px-3 py-2 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50" />
         <button onClick={() => submitLog.mutate()}
-          className="p-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 active:scale-95 transition-all">
+          className="p-2.5 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 active:scale-95 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center">
           <Send className="w-4 h-4" />
         </button>
       </div>
