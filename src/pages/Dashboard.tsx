@@ -151,51 +151,6 @@ function CourtCard({
   );
 }
 
-/* ─── Pilot Ticker ─── */
-function PilotTicker() {
-  const { data: recentActivity = [] } = useQuery({
-    queryKey: ["pilot-ticker"],
-    queryFn: async () => {
-      const [{ data: reports }, { data: observations }] = await Promise.all([
-        supabase.from("reports").select("court_id, created_at, rainfall").order("created_at", { ascending: false }).limit(3),
-        supabase.from("observations").select("court_id, created_at, status, display_name").order("created_at", { ascending: false }).limit(3),
-      ]);
-      const items: { text: string; time: string }[] = [];
-      for (const r of reports ?? []) {
-        const ago = getTimeAgo(r.created_at);
-        items.push({ text: `📋 Report: ${r.rainfall}" rain`, time: ago });
-      }
-      for (const o of observations ?? []) {
-        const ago = getTimeAgo(o.created_at);
-        const label = o.status === "playable" ? "✅ Playable" : o.status === "still_wet" ? "💧 Still Wet" : "🧹 Squeegee";
-        items.push({ text: `${label} — ${o.display_name}`, time: ago });
-      }
-      items.sort((a, b) => a.time.localeCompare(b.time));
-      items.unshift({ text: "🎯 Pilot Phase: 14 Facilities | Goal: 1,000 Verified Reports", time: "" });
-      return items.slice(0, 6);
-    },
-    refetchInterval: 30000,
-  });
-
-  if (recentActivity.length === 0) return null;
-
-  return (
-    <div className="overflow-hidden bg-accent/5 border-b border-border">
-      <div className="flex animate-scroll-x gap-8 px-4 py-1.5 whitespace-nowrap">
-        {recentActivity.map((item, i) => (
-         <span key={i} className="text-[11px] text-muted-foreground flex-shrink-0">
-            {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
-          </span>
-        ))}
-        {recentActivity.map((item, i) => (
-         <span key={`dup-${i}`} className="text-[11px] text-muted-foreground flex-shrink-0">
-            {item.text}{item.time && <span className="text-muted-foreground/50"> ({item.time})</span>}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function getTimeAgo(dateStr: string): string {
   const mins = Math.round((Date.now() - new Date(dateStr).getTime()) / 60000);
