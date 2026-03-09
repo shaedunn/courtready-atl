@@ -106,9 +106,8 @@ export default function CaptainDashboard() {
       });
       if (error) throw error;
       toast({ title: `Status: ${ACTION_LABELS[selectedStatus]}` });
+      setPublishedStatus(selectedStatus);
       setCaptainNote("");
-      setSelectedStatus(null);
-      setEffortTags([]);
       queryClient.invalidateQueries({ queryKey: ["beacon-status"] });
       queryClient.invalidateQueries({ queryKey: ["beacon-timeline"] });
     } catch (e: any) {
