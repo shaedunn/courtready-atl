@@ -1,5 +1,4 @@
 // CourtReady ATL — force rebuild with correct backend URL
-import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,8 +11,6 @@ import Instructions from "./pages/Instructions";
 import BeaconPage from "./pages/BeaconPage";
 import CaptainDashboard from "./pages/CaptainDashboard";
 import NotFound from "./pages/NotFound";
-import SplashScreen from "./components/SplashScreen";
-
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -25,19 +22,11 @@ export const queryClient = new QueryClient({
 });
 
 const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        {showSplash && (
-          <SplashScreen
-            onComplete={() => setShowSplash(false)}
-            queryClient={queryClient}
-          />
-        )}
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Dashboard />} />
