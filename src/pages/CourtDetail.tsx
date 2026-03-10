@@ -251,6 +251,30 @@ function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latest
         <p className={`text-lg font-bold font-heading ${display.color}`}>{display.label}</p>
       </div>
 
+      {/* Inline weather strip */}
+      {weatherData && (
+        <p className="text-xs text-muted-foreground">
+          {weatherData.temp != null && <>{Math.round(weatherData.temp)}°F · </>}
+          {weatherData.humidity != null && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={weatherData.humidity > 90 ? "text-court-amber font-medium" : ""}>
+                    {weatherData.humidity}% humidity
+                  </span>
+                </TooltipTrigger>
+                {weatherData.humidity > 90 && (
+                  <TooltipContent side="top" className="max-w-[200px] text-xs">
+                    High humidity slows drying significantly and may create slippery surfaces.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {weatherData.wind_speed != null && <> · {Math.round(weatherData.wind_speed)} mph wind</>}
+        </p>
+      )}
+
       {/* Outlook line */}
       {outlookText && (
         <div className="space-y-1">
