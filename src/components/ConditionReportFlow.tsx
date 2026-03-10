@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/drawer";
 
 type Condition = "dry" | "damp" | "wet" | "active_rain";
-type EffortTag = "Squeegees out" | "Blowers active" | "Debris on court" | "All clear";
+type EffortTag = "Squeegees out" | "Blowers active" | "Debris on court" | "Bird-bath flooding" | "All clear";
 
 const CONDITIONS: { value: Condition; emoji: string; label: string; description: string }[] = [
   { value: "dry", emoji: "🟢", label: "Dry", description: "courts are playable" },
@@ -18,7 +18,7 @@ const CONDITIONS: { value: Condition; emoji: string; label: string; description:
   { value: "active_rain", emoji: "🌧️", label: "Active rain", description: "still coming down" },
 ];
 
-const EFFORT_TAGS: EffortTag[] = ["Squeegees out", "Blowers active", "Debris on court", "All clear"];
+const EFFORT_TAGS: EffortTag[] = ["Squeegees out", "Blowers active", "Debris on court", "Bird-bath flooding", "All clear"];
 
 const CONDITION_DEFAULTS: Record<Condition, { rainfall: number; dryMinutes: number; sky: string }> = {
   dry: { rainfall: 0, dryMinutes: 0, sky: "clear" },

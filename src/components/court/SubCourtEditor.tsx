@@ -171,8 +171,6 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
                 <div className="flex flex-wrap gap-1 mb-1">
                   {[
                     "Slippery Moss/Algae spots",
-                    "Debris/Acorns on baseline",
-                    "Standing water in bird-bath",
                     "Cracked surface/Trip hazard",
                   ].map((suggestion) => (
                     <button
