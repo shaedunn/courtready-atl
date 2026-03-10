@@ -1048,6 +1048,7 @@ export default function CourtDetail() {
             latestReport={latestReport}
             courtId={court.id}
             latestObservation={effectiveObservation}
+            weatherData={weatherData}
           />
         </div>
 
