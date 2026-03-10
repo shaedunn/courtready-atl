@@ -502,30 +502,24 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (remainingMinutes > 0 || prevIsActiveRain) {
         // Still recovering or transitioning from active rain
         const effectiveMinutes = Math.max(remainingMinutes, prevIsActiveRain ? 30 : 0);
-        const formatPlayableTime = (mins: number) => {
-          const target = new Date(Date.now() + mins * 60000);
-          return target.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
-        };
-        const effort = effectiveMinutes <= 30 ? "Light effort"
-          : effectiveMinutes <= 60 ? "Moderate effort"
-          : effectiveMinutes <= 120 ? "Full effort"
-          : "Heavy effort";
-        const action = effectiveMinutes <= 30 ? "bring towels"
-          : effectiveMinutes <= 60 ? "squeegees recommended"
-          : effectiveMinutes <= 120 ? "blowers + squeegees needed"
-          : "full court press required";
-        const playableTime = formatPlayableTime(effectiveMinutes);
+        const effort = effectiveMinutes <= 30 ? "light effort"
+          : effectiveMinutes <= 60 ? "moderate effort"
+          : effectiveMinutes <= 120 ? "full effort"
+          : "heavy effort";
+        const durationStr = effectiveMinutes <= 60
+          ? `within ${effectiveMinutes} minutes`
+          : `within ${Math.round(effectiveMinutes / 60)} hour${Math.round(effectiveMinutes / 60) > 1 ? "s" : ""}`;
 
         const outputString = prevIsActiveRain
-          ? `Rain clearing. Estimated playable by ${playableTime} with ${effort.toLowerCase()} — conditions improving.`
-          : `Post-rain recovery. Estimated playable by ${playableTime} with ${effort.toLowerCase()} (${action}).`;
+          ? `Rain clearing — playable ${durationStr} with ${effort} once rain stops.`
+          : `Post-rain recovery — playable ${durationStr} with ${effort}.`;
 
         return {
           ...recoveryResult,
           estimatedMinutes: effectiveMinutes,
-          estimatedPlayableTime: playableTime,
+          estimatedPlayableTime: null,
           effortLevel: effort,
-          action,
+          action: "",
           outputString,
           isActiveRain: false,
         };
