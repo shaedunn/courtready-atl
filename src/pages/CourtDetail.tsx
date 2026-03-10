@@ -392,6 +392,16 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
   const [showDetails, setShowDetails] = useState(false);
   const hourly = weatherData.hourly ?? [];
 
+  // Generate clock-time labels for tabs
+  const tabLabels = useMemo(() => {
+    const now = new Date();
+    return [0, 1, 2, 3].map(off => {
+      if (off === 0) return "Now";
+      const future = new Date(now.getTime() + off * 3600000);
+      return future.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+    });
+  }, []);
+
   const recentReportRainfall = useMemo(() => {
     if (!latestReport) return null;
     const ageH = (Date.now() - new Date(latestReport.created_at).getTime()) / 3600000;
