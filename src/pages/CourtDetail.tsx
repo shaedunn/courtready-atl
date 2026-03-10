@@ -1081,28 +1081,6 @@ export default function CourtDetail() {
           </div>
         )}
 
-        {!showForm && (
-          <button onClick={() => setShowForm(true)}
-            className="w-full font-semibold py-3 rounded-lg text-sm tracking-wide hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-            style={{ backgroundColor: "#002366", color: "#DFFF00" }}
-          >
-            <CloudRain className="w-4 h-4" />
-            Captain's Report
-          </button>
-        )}
-
-        {showForm && (
-          <ReportForm
-            court={court}
-            onSubmitted={() => {
-              setShowForm(false);
-              if (shouldCelebrate()) {
-                markCelebrated();
-                setShowCelebration(true);
-              }
-            }}
-          />
-        )}
 
         <div data-tour="sub-court-editor">
           <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
