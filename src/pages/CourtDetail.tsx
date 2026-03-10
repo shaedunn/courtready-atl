@@ -402,26 +402,78 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       );
     }
     const h = hourly[off];
-    if (!h) {
-      return computeDryClock(
-        weatherData.rain_1h ?? 0,
-        weatherData.humidity ?? 50,
-        weatherData.wind_speed ?? 5,
-        weatherData.description ?? "",
-        court.drainage,
-        court.sun_exposure,
-        null,
-      );
-    }
-    return computeDryClock(
-      h.rain_1h ?? 0,
-      h.humidity ?? 50,
-      h.wind_speed ?? 5,
-      h.description ?? weatherData.description ?? "",
+    const futureHumidity = h?.humidity ?? weatherData.humidity ?? 50;
+    const futureWind = h?.wind_speed ?? weatherData.wind_speed ?? 5;
+    const futureDesc = h?.description ?? weatherData.description ?? "";
+    const futureRain = h?.rain_1h ?? 0;
+
+    // Compute the base result for this hour's own conditions
+    const baseResult = computeDryClock(
+      futureRain,
+      futureHumidity,
+      futureWind,
+      futureDesc,
       court.drainage,
       court.sun_exposure,
       null,
     );
+
+    // If this hour already shows rain/active rain, no recovery adjustment needed
+    if (baseResult.isActiveRain || baseResult.estimatedMinutes > 0) {
+      return baseResult;
+    }
+
+    // Check prior hours for accumulated rainfall that needs drainage recovery
+    const priorHours = hourly.slice(0, off);
+    const nowRain = weatherData.rain_1h ?? 0;
+    const totalPriorRain = priorHours.reduce((sum, ph) => sum + (ph.rain_1h ?? 0), nowRain);
+    const priorHadRain = totalPriorRain > 0.05; // more than mist
+
+    if (priorHadRain) {
+      // Compute full recovery time from the accumulated rainfall using current hour's conditions
+      const recoveryResult = computeDryClock(
+        totalPriorRain,
+        futureHumidity,
+        futureWind,
+        futureDesc,
+        court.drainage,
+        court.sun_exposure,
+        null,
+      );
+
+      // Subtract elapsed time (offset hours have passed since rain started)
+      const elapsedMinutes = off * 60;
+      const remainingMinutes = Math.max(0, recoveryResult.estimatedMinutes - elapsedMinutes);
+
+      if (remainingMinutes > 0) {
+        // Still recovering — return a modified result showing remaining dry time
+        const formatPlayableTime = (mins: number) => {
+          const target = new Date(Date.now() + mins * 60000);
+          return target.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
+        };
+        const effort = remainingMinutes <= 30 ? "Light effort"
+          : remainingMinutes <= 60 ? "Moderate effort"
+          : remainingMinutes <= 120 ? "Full effort"
+          : "Heavy effort";
+        const action = remainingMinutes <= 30 ? "bring towels"
+          : remainingMinutes <= 60 ? "squeegees recommended"
+          : remainingMinutes <= 120 ? "blowers + squeegees needed"
+          : "full court press required";
+        const playableTime = formatPlayableTime(remainingMinutes);
+
+        return {
+          ...recoveryResult,
+          estimatedMinutes: remainingMinutes,
+          estimatedPlayableTime: playableTime,
+          effortLevel: effort,
+          action,
+          outputString: `Post-rain recovery. Estimated playable by ${playableTime} with ${effort.toLowerCase()} (${action}).`,
+          isActiveRain: false,
+        };
+      }
+    }
+
+    return baseResult;
   }, [offset, hourly, weatherData, court.drainage, court.sun_exposure, recentReportRainfall]);
 
   const reportTier = getReportTier(latestReport?.created_at ?? null);
