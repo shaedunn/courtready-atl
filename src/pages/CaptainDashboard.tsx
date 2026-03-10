@@ -91,13 +91,13 @@ export default function CaptainDashboard() {
 
   // Auto-populate home team with selected facility name
   const activeCourtName = courts?.find(c => c.id === activeCourt)?.name ?? "";
-  const [lastAutoName, setLastAutoName] = useState("");
-  if (activeCourtName && activeCourtName !== lastAutoName) {
-    if (!homeTeam || homeTeam === lastAutoName) {
-      setHomeTeam(activeCourtName);
+  const lastAutoRef = useRef("");
+  useEffect(() => {
+    if (activeCourtName && activeCourtName !== lastAutoRef.current) {
+      setHomeTeam(prev => (!prev || prev === lastAutoRef.current) ? activeCourtName : prev);
+      lastAutoRef.current = activeCourtName;
     }
-    setLastAutoName(activeCourtName);
-  }
+  }, [activeCourtName]);
 
   const toggleEffort = (tag: string) => {
     setEffortTags((prev) =>
