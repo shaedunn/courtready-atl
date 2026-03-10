@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown } from "lucide-react";
+import { ArrowLeft, Clock, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown, X } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import ConditionReportFlow from "@/components/ConditionReportFlow";
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -303,21 +304,6 @@ function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latest
       {latestReport && (
         <StatusVerification courtId={courtId} reportId={latestReport.id} />
       )}
-
-      <TooltipProvider delayDuration={100}>
-        <div className="flex justify-end">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-[10px] text-muted-foreground/50 cursor-help flex items-center gap-1">
-                <Info className="w-3 h-3" /> V1 Predictor Model
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[240px] text-xs">
-              Dry time estimates use a Step-Multiplier formula calibrated with weather, drainage, and sun exposure data. Community verifications help improve accuracy.
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
     </div>
   );
 }
@@ -799,6 +785,7 @@ export default function CourtDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showTour, setShowTour] = useState(false);
+  const [showDnaSheet, setShowDnaSheet] = useState(false);
 
   // Realtime subscriptions for reports & court_status
   useEffect(() => {
@@ -1002,7 +989,7 @@ export default function CourtDetail() {
               <p className="text-xs text-accent-foreground/70 truncate">{court.location}</p>
             </div>
           </div>
-          <button onClick={() => navigate(`/court/${id}/admin`)} className="p-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Facility Setup">
+          <button onClick={() => setShowDnaSheet(true)} className="p-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Facility Setup">
             <Settings className="w-5 h-5 text-accent-foreground/70" />
           </button>
         </div>
@@ -1026,7 +1013,7 @@ export default function CourtDetail() {
         )}
 
         {/* Action Buttons — stacked vertically */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           {/* Button 1: Captain's action — Send the Call */}
           <button
             onClick={() => navigate(`/captain?court=${court.id}`)}
@@ -1035,9 +1022,15 @@ export default function CourtDetail() {
           >
             Send the Call →
           </button>
+          <p className="text-xs text-muted-foreground text-center pb-3">
+            For captains — broadcast live status to your team and opponents in 3 taps.
+          </p>
 
           {/* Button 2: Reporter action — report conditions */}
           <ConditionReportFlow courtId={court.id} variant="secondary" />
+          <p className="text-xs text-muted-foreground text-center">
+            For players — share your real-time on-court assessment with the community.
+          </p>
         </div>
 
         {/* Today's report count */}
@@ -1051,10 +1044,6 @@ export default function CourtDetail() {
         )}
 
 
-        <div data-tour="sub-court-editor">
-          <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
-        </div>
-
         {/* Court Profile (DNA note) */}
         {court.dna_note && (
           <div className="bg-card rounded-lg p-5 border border-border">
@@ -1067,6 +1056,18 @@ export default function CourtDetail() {
           <CaptainsLog court={court} />
         </div>
       </main>
+
+      {/* DNA Editing Sheet */}
+      <Sheet open={showDnaSheet} onOpenChange={setShowDnaSheet}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-sm font-bold">{court.name} — Court Ratings</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4" data-tour="sub-court-editor">
+            <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {showTour && <GuidedTour onComplete={() => setShowTour(false)} />}
       {showCelebration && <CelebrationOverlay onDone={() => setShowCelebration(false)} />}

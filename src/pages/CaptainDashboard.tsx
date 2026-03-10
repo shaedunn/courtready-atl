@@ -80,6 +80,13 @@ export default function CaptainDashboard() {
       .filter(c => c.name.toLowerCase().includes(facilitySearch.toLowerCase()));
   }, [courts, pinnedIds, facilitySearch]);
 
+  // Selected non-pinned court (for display after search selection)
+  const selectedNonPinnedCourt = useMemo(() => {
+    if (!selectedCourt || !courts) return null;
+    if (pinnedIds.includes(selectedCourt)) return null;
+    return courts.find(c => c.id === selectedCourt) ?? null;
+  }, [selectedCourt, courts, pinnedIds]);
+
   // Auto-select: preselected > first pinned > empty
   const activeCourt = selectedCourt || pinnedCourts[0]?.id || "";
 
@@ -184,6 +191,20 @@ export default function CaptainDashboard() {
           </div>
         )}
 
+        {/* Show selected non-pinned court */}
+        {selectedNonPinnedCourt && !showSearch && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border bg-primary text-primary-foreground border-primary">
+              {selectedNonPinnedCourt.name}
+            </span>
+            <button
+              onClick={() => { setSelectedCourt(""); setShowSearch(true); }}
+              className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              Change
+            </button>
+          </div>
+        )}
         {/* Search toggle / field */}
         {hasPinned && !showSearch ? (
           <button
