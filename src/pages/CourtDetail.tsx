@@ -1003,8 +1003,7 @@ export default function CourtDetail() {
           </p>
         </div>
 
-        {/* Today's report count */}
-        <TodayReportCount courtId={court.id} />
+        {/* Report count removed — button CTA is sufficient */}
 
         {rainResetActive && (
           <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
