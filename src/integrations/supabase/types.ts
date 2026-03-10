@@ -317,6 +317,7 @@ export type Database = {
           id: string
           permanent_note: string | null
           sun_exposure: number
+          surface_type: string
         }
         Insert: {
           court_number: number
@@ -327,6 +328,7 @@ export type Database = {
           id?: string
           permanent_note?: string | null
           sun_exposure?: number
+          surface_type?: string
         }
         Update: {
           court_number?: number
@@ -337,6 +339,7 @@ export type Database = {
           id?: string
           permanent_note?: string | null
           sun_exposure?: number
+          surface_type?: string
         }
         Relationships: [
           {
