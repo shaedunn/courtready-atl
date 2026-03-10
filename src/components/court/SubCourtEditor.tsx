@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { Sun, Droplets, Save, Plus, AlertTriangle, ShieldAlert, Pencil } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { SubCourt } from "@/components/court/SubCourtSelector";
 
 const SUN_LABELS: Record<number, string> = { 1: "Full Shade", 2: "Mostly Shade", 3: "Mixed", 4: "Mostly Sun", 5: "Full Sun" };
@@ -16,6 +17,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
   const [drainVal, setDrainVal] = useState(3);
   const [noteVal, setNoteVal] = useState("");
   const [hazardVal, setHazardVal] = useState("");
+  const [surfaceVal, setSurfaceVal] = useState("hard");
 
   const { data: subCourts = [] } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", courtId],
@@ -52,6 +54,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
           drainage: drainVal,
           permanent_note: noteVal.trim() || null,
           hazard_description: hazardVal.trim() || null,
+          surface_type: surfaceVal,
         } as any)
         .eq("id", editingCourt.id);
       if (error) throw error;
@@ -83,6 +86,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     setDrainVal(sc.drainage);
     setNoteVal(sc.permanent_note || "");
     setHazardVal(sc.hazard_description || "");
+    setSurfaceVal((sc as any).surface_type || "hard");
   };
 
   const seedAllMutation = useMutation({
@@ -151,6 +155,26 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
                   <span className="text-[10px] font-medium">{drainVal} — {DRAIN_LABELS[drainVal]}</span>
                 </div>
                 <Slider value={[drainVal]} onValueChange={([v]) => setDrainVal(v)} min={1} max={5} step={1} className="w-full" />
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-muted-foreground">Surface Type</span>
+                <ToggleGroup
+                  type="single"
+                  value={surfaceVal}
+                  onValueChange={(v) => { if (v) setSurfaceVal(v); }}
+                  className="justify-start"
+                >
+                  <ToggleGroupItem value="hard" className="text-[10px] px-2.5 py-1 h-auto rounded-full border border-border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                    Hard Court
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="har_tru" className="text-[10px] px-2.5 py-1 h-auto rounded-full border border-border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                    Har-Tru / Clay
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="grass" className="text-[10px] px-2.5 py-1 h-auto rounded-full border border-border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                    Grass
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
 
               <div className="space-y-1">

@@ -1,0 +1,1 @@
+ALTER TABLE public.sub_courts ADD COLUMN surface_type text NOT NULL DEFAULT 'hard';
