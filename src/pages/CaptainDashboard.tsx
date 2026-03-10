@@ -80,6 +80,13 @@ export default function CaptainDashboard() {
       .filter(c => c.name.toLowerCase().includes(facilitySearch.toLowerCase()));
   }, [courts, pinnedIds, facilitySearch]);
 
+  // Selected non-pinned court (for display after search selection)
+  const selectedNonPinnedCourt = useMemo(() => {
+    if (!selectedCourt || !courts) return null;
+    if (pinnedIds.includes(selectedCourt)) return null;
+    return courts.find(c => c.id === selectedCourt) ?? null;
+  }, [selectedCourt, courts, pinnedIds]);
+
   // Auto-select: preselected > first pinned > empty
   const activeCourt = selectedCourt || pinnedCourts[0]?.id || "";
 
