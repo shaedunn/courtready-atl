@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Pencil, Sun, Droplets, Save, X, Plus, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Sun, Droplets, Save, Plus, AlertTriangle, ShieldAlert, Pencil } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import type { SubCourt } from "@/components/court/SubCourtSelector";
