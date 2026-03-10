@@ -785,6 +785,7 @@ export default function CourtDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showTour, setShowTour] = useState(false);
+  const [showDnaSheet, setShowDnaSheet] = useState(false);
 
   // Realtime subscriptions for reports & court_status
   useEffect(() => {
