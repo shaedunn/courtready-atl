@@ -303,21 +303,6 @@ function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latest
       {latestReport && (
         <StatusVerification courtId={courtId} reportId={latestReport.id} />
       )}
-
-      <TooltipProvider delayDuration={100}>
-        <div className="flex justify-end">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-[10px] text-muted-foreground/50 cursor-help flex items-center gap-1">
-                <Info className="w-3 h-3" /> V1 Predictor Model
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[240px] text-xs">
-              Dry time estimates use a Step-Multiplier formula calibrated with weather, drainage, and sun exposure data. Community verifications help improve accuracy.
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
     </div>
   );
 }
