@@ -86,6 +86,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     setDrainVal(sc.drainage);
     setNoteVal(sc.permanent_note || "");
     setHazardVal(sc.hazard_description || "");
+    setSurfaceVal((sc as any).surface_type || "hard");
   };
 
   const seedAllMutation = useMutation({
