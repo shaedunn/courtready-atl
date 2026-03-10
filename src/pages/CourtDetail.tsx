@@ -202,6 +202,7 @@ function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latest
   latestReport: Report | null;
   courtId: string;
   latestObservation: Observation | null;
+  weatherData: { temp?: number | null; humidity?: number | null; wind_speed?: number | null } | null;
 }) {
   const [outlookExpanded, setOutlookExpanded] = useState(false);
 
