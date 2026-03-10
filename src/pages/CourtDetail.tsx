@@ -526,6 +526,34 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       }
     }
 
+    // For future tabs, override output to use relative duration format
+    if (off > 0) {
+      if (baseResult.isActiveRain) {
+        return {
+          ...baseResult,
+          outputString: "Active rain — check back as conditions develop.",
+        };
+      }
+      if (baseResult.estimatedMinutes <= 0) {
+        return {
+          ...baseResult,
+          outputString: "Courts dry — ready to play.",
+        };
+      }
+      const mins = baseResult.estimatedMinutes;
+      const effort = mins <= 30 ? "light effort"
+        : mins <= 60 ? "moderate effort"
+        : mins <= 120 ? "full effort"
+        : "heavy effort";
+      const durationStr = mins <= 60
+        ? `within ${mins} minutes`
+        : `within ${Math.round(mins / 60)} hour${Math.round(mins / 60) > 1 ? "s" : ""}`;
+      return {
+        ...baseResult,
+        outputString: `Post-rain recovery — playable ${durationStr} with ${effort}.`,
+      };
+    }
+
     return baseResult;
   }, [offset, hourly, weatherData, court.drainage, court.sun_exposure, recentReportRainfall]);
 
