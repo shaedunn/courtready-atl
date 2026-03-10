@@ -938,22 +938,72 @@ export default function CourtDetail() {
   }, [weatherData, court?.drainage, court?.sun_exposure, recentReportRainfall]);
 
   const dryClockFuture = useMemo(() => {
-    if (!weatherData) return [];
+    if (!weatherData || !court) return [];
     const hourly = (weatherData as WeatherWithHourly).hourly ?? [];
+
+    // Build a stateful chain mirroring PlayabilityForecast logic
+    type CourtState = "DRY" | "WET";
+    const drain = court.drainage ?? 3;
+    const sun = court.sun_exposure ?? 3;
+    const nowRain = weatherData.rain_1h ?? 0;
+    const nowResult = computeDryClock(
+      nowRain, weatherData.humidity ?? 50, weatherData.wind_speed ?? 5,
+      weatherData.description ?? "", drain, sun, recentReportRainfall,
+    );
+    let courtState: CourtState = (nowResult.isActiveRain || nowResult.estimatedMinutes > 0 || nowRain > 0.05) ? "WET" : "DRY";
+    let accRain = courtState === "WET" ? Math.max(nowRain, recentReportRainfall ?? 0) : 0;
+
+    type TabEntry = { isActiveRain: boolean; courtState: CourtState; accRain: number };
+    const tabs: TabEntry[] = [{ isActiveRain: nowResult.isActiveRain, courtState, accRain }];
+
     return [1, 2, 3].map(off => {
       const h = hourly[off];
-      const result = computeDryClock(
-        h?.rain_1h ?? weatherData.rain_1h ?? 0,
-        h?.humidity ?? weatherData.humidity ?? 50,
-        h?.wind_speed ?? weatherData.wind_speed ?? 5,
-        h?.description ?? weatherData.description ?? "",
-        court?.drainage ?? 3,
-        court?.sun_exposure ?? 3,
-        null,
-      );
-      return { offset: off, result };
+      const rain = h?.rain_1h ?? 0;
+      const humidity = h?.humidity ?? weatherData.humidity ?? 50;
+      const wind = h?.wind_speed ?? weatherData.wind_speed ?? 5;
+      const desc = h?.description ?? weatherData.description ?? "";
+      const isActive = (desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("thunderstorm")) && rain > 0.1;
+
+      const prev = tabs[tabs.length - 1];
+
+      if (isActive || rain > 0.1) {
+        accRain = prev.accRain + rain;
+        courtState = "WET";
+        tabs.push({ isActiveRain: true, courtState, accRain });
+        const r = computeDryClock(rain, humidity, wind, desc, drain, sun, null);
+        return { offset: off, result: { ...r, isActiveRain: true, estimatedMinutes: -1, outputString: "Active rain — check back as conditions develop." } };
+      }
+
+      if (prev.courtState === "DRY") {
+        courtState = "DRY";
+        accRain = 0;
+        tabs.push({ isActiveRain: false, courtState, accRain });
+        const r = computeDryClock(0, humidity, wind, desc, drain, sun, null);
+        return { offset: off, result: { ...r, estimatedMinutes: 0, outputString: "Courts dry — ready to play." } };
+      }
+
+      // WET inherited, compute recovery
+      const recoveryResult = computeDryClock(prev.accRain, humidity, wind, desc, drain, sun, null);
+      let hoursSinceStop = 0;
+      for (let j = tabs.length - 1; j >= 0; j--) {
+        if (tabs[j].isActiveRain) { hoursSinceStop = tabs.length - j; break; }
+      }
+      if (hoursSinceStop === 0) hoursSinceStop = tabs.length;
+      const remaining = Math.max(0, recoveryResult.estimatedMinutes - hoursSinceStop * 60);
+
+      if (remaining <= 0) {
+        courtState = "DRY";
+        accRain = 0;
+        tabs.push({ isActiveRain: false, courtState, accRain });
+        const r = computeDryClock(0, humidity, wind, desc, drain, sun, null);
+        return { offset: off, result: { ...r, estimatedMinutes: 0, outputString: "Courts dry — ready to play." } };
+      }
+
+      courtState = "WET";
+      tabs.push({ isActiveRain: false, courtState, accRain: prev.accRain });
+      return { offset: off, result: { ...recoveryResult, estimatedMinutes: remaining } };
     });
-  }, [weatherData, court?.drainage, court?.sun_exposure]);
+  }, [weatherData, court?.drainage, court?.sun_exposure, recentReportRainfall]);
 
   if (isLoading) {
     return (
