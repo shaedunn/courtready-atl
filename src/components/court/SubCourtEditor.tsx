@@ -54,6 +54,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
           drainage: drainVal,
           permanent_note: noteVal.trim() || null,
           hazard_description: hazardVal.trim() || null,
+          surface_type: surfaceVal,
         } as any)
         .eq("id", editingCourt.id);
       if (error) throw error;
