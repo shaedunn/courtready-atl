@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown } from "lucide-react";
 import ConditionReportFlow from "@/components/ConditionReportFlow";
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -170,142 +170,113 @@ function SqueegeeAction({ report, courtId }: { report: Report; courtId: string }
   );
 }
 
-/* ─── Status Card ─── */
-function StatusCard({ report, courtId, latestObservation, currentHumidity, recentRain, forecastScore, currentRain1h }: { report: Report | null; courtId: string; latestObservation: Observation | null; currentHumidity?: number | null; recentRain?: boolean; forecastScore?: number | null; currentRain1h?: number | null }) {
-  const status = getCourtStatus(report, latestObservation, currentHumidity, recentRain, forecastScore, currentRain1h);
-  const config = STATUS_CONFIG[status];
-  const highHumidity = (currentHumidity ?? 0) > 90;
-  const saturatedAirHardLock = highHumidity;
-  const isGoldOverride = status === "human_verified";
-  const displayLabel = saturatedAirHardLock ? "Saturated Air - Drying Paused" : config.label;
-  const displayColor = saturatedAirHardLock ? "bg-destructive" : isGoldOverride ? "bg-amber-400" : config.color;
+/* ─── Infer current condition from weather/report ─── */
+type NowCondition = "dry" | "damp" | "wet" | "active_rain";
 
-  const dryTime = report
-    ? Math.max(0, report.estimated_dry_minutes - (Date.now() - new Date(report.created_at).getTime()) / 60000)
-    : null;
-  const roundedDry = dryTime !== null ? Math.round(dryTime) : null;
-  const squeegeeDry = roundedDry !== null && roundedDry > 0 ? calculateSqueegeeDryTime(roundedDry) : null;
-  const saturatedAirEstimate = Math.max(180, roundedDry ?? 180);
+function inferNowCondition(dryClockResult: DryClockResult, latestReport: Report | null): NowCondition {
+  // If there's a recent anon report, use it
+  if (latestReport) {
+    const ageMs = Date.now() - new Date(latestReport.created_at).getTime();
+    if (ageMs < 2 * 60 * 60 * 1000) {
+      return inferAnonCondition(latestReport);
+    }
+  }
+  // Fall back to algorithm
+  if (dryClockResult.isActiveRain) return "active_rain";
+  if (dryClockResult.estimatedMinutes > 60) return "wet";
+  if (dryClockResult.estimatedMinutes > 0) return "damp";
+  return "dry";
+}
 
-  const verifierName = latestObservation?.status === "playable" ? latestObservation.display_name : null;
-  const verifiedAgo = latestObservation?.status === "playable" ? getVerifiedAgoText(latestObservation.created_at) : null;
+const CONDITION_DISPLAY: Record<NowCondition, { label: string; color: string; dotColor: string }> = {
+  dry: { label: "Courts Dry — Ready to Play", color: "text-court-green", dotColor: "bg-court-green" },
+  damp: { label: "Courts Damp — Drying in Progress", color: "text-court-amber", dotColor: "bg-court-amber" },
+  wet: { label: "Standing Water — Not Playable", color: "text-destructive", dotColor: "bg-destructive" },
+  active_rain: { label: "Active Rain", color: "text-destructive", dotColor: "bg-destructive" },
+};
 
-  const showRainResetNote = report && latestObservation?.status === "playable" && !isGoldOverride && status !== "verified";
-  const showActiveStatus = !saturatedAirHardLock && !isGoldOverride && (status === "drying" || status === "wet");
+/* ─── Status Card (Condition + Outlook) ─── */
+function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latestObservation }: {
+  dryClockNow: DryClockResult | null;
+  dryClockFuture: { offset: number; result: DryClockResult }[];
+  latestReport: Report | null;
+  courtId: string;
+  latestObservation: Observation | null;
+}) {
+  const [outlookExpanded, setOutlookExpanded] = useState(false);
+
+  // Determine "Now" condition
+  const nowCondition: NowCondition = dryClockNow
+    ? inferNowCondition(dryClockNow, latestReport)
+    : (latestReport ? inferAnonCondition(latestReport) : "dry");
+
+  const display = CONDITION_DISPLAY[nowCondition];
+
+  // Determine future conditions for outlook
+  const futureConditions = dryClockFuture.map(f => {
+    const cond: NowCondition = f.result.isActiveRain ? "active_rain"
+      : f.result.estimatedMinutes > 60 ? "wet"
+      : f.result.estimatedMinutes > 0 ? "damp"
+      : "dry";
+    return { offset: f.offset, condition: cond };
+  });
+
+  // Outlook logic
+  let outlookText: string | null = null;
+  let outlookEmoji = "🟡";
+  let outlookDetail: string | null = null;
+
+  const nowIsDry = nowCondition === "dry";
+  const nowIsWetOrDamp = nowCondition === "wet" || nowCondition === "damp" || nowCondition === "active_rain";
+  const futureHasRain = futureConditions.some(f => f.condition === "wet" || f.condition === "active_rain");
+  const futureClearing = futureConditions.some(f => f.condition === "dry" || f.condition === "damp");
+  const futureAllSame = futureConditions.every(f => f.condition === nowCondition);
+
+  if (nowIsDry && futureHasRain) {
+    const rainOffset = futureConditions.find(f => f.condition === "wet" || f.condition === "active_rain");
+    outlookText = "Rain expected — see forecast";
+    outlookDetail = `Current conditions are dry, but rain is expected within ${rainOffset ? rainOffset.offset : 3} hours. Check the Playability Forecast for your window.`;
+  } else if (nowIsWetOrDamp && futureClearing && !futureAllSame) {
+    outlookText = "Clearing soon — see forecast";
+    outlookDetail = "Courts are currently wet, but clearing conditions suggest playability soon with prep. See Playability Forecast below.";
+  }
 
   return (
-    <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Current Status</span>
-        <div className="flex items-center gap-2">
-          {report && (
-            <span className="text-[11px] text-muted-foreground">
-              {new Date(report.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          )}
-          <Badge variant="outline" className="text-[10px] px-2 py-0.5 gap-1.5 border-border">
-            <span className={`w-2 h-2 rounded-full ${displayColor} inline-block`} />
-            {displayLabel}
-          </Badge>
-        </div>
+    <div className="bg-card rounded-lg p-5 border border-border card-glow space-y-3">
+      <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Current Condition</span>
+
+      <div className="flex items-center gap-2">
+        <span className={`w-3 h-3 rounded-full ${display.dotColor} inline-block`} />
+        <p className={`text-lg font-bold font-heading ${display.color}`}>{display.label}</p>
       </div>
 
-      {isGoldOverride && (
-        <div className="text-center space-y-1">
-          <CheckCircle2 className="w-7 h-7 text-amber-500 mx-auto" />
-          <p className="text-lg font-bold text-amber-500">Human Verified</p>
-          {verifierName && verifiedAgo && (
-            <p className="text-xs text-muted-foreground">
-              Verified by <span className="font-medium text-foreground">{verifierName}</span> · {verifiedAgo}
+      {/* Outlook line */}
+      {outlookText && (
+        <div className="space-y-1">
+          <button
+            onClick={() => setOutlookExpanded(p => !p)}
+            className="flex items-center gap-1.5 text-xs text-court-amber min-h-[36px]"
+          >
+            <span>{outlookEmoji}</span>
+            <span>{outlookText}</span>
+            <Info className="w-3 h-3 text-muted-foreground" />
+          </button>
+          {outlookExpanded && outlookDetail && (
+            <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3 border border-border">
+              {outlookDetail}
             </p>
           )}
         </div>
       )}
 
-      {status === "verified" && !isGoldOverride && (
-        <div className="text-center space-y-1">
-          <CheckCircle2 className="w-7 h-7 text-court-green mx-auto" />
-          <p className="text-lg font-bold text-court-green">Verified Playable</p>
-          {verifierName && verifiedAgo && (
-            <p className="text-xs text-muted-foreground">
-              by <span className="font-medium text-foreground">{verifierName}</span> · {verifiedAgo}
-            </p>
-          )}
-        </div>
+      {/* Squeegee action for wet/damp */}
+      {(nowCondition === "wet" || nowCondition === "damp") && latestReport && (
+        <SqueegeeAction report={latestReport} courtId={courtId} />
       )}
 
-      {saturatedAirHardLock && (
-        <div className="text-center space-y-2">
-          <AlertTriangle className="w-6 h-6 text-destructive mx-auto" />
-          <p className="text-lg font-bold text-destructive">Status: Saturated Air - Drying Paused</p>
-          <p className="text-xs text-muted-foreground">Humidity &gt;90%. Natural drying is paused.</p>
-          <div className="flex items-center justify-center gap-2">
-            <Clock className="w-5 h-5 text-destructive" />
-            <span className="text-xl font-bold text-destructive">{formatDryTime(saturatedAirEstimate)}</span>
-          </div>
-        </div>
-      )}
-
-      {showActiveStatus && roundedDry !== null && roundedDry > 0 && (
-        <div className="text-center space-y-3">
-          <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Natural Dry Time</p>
-            <div className="flex items-center justify-center gap-2">
-              <Clock className="w-5 h-5 text-court-amber" />
-              <span className="text-2xl font-bold text-court-amber">{formatDryTime(roundedDry)}</span>
-            </div>
-          </div>
-          {squeegeeDry !== null && (
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Squeegee Assisted</p>
-              <span className="text-lg font-bold text-court-green">{formatDryTime(squeegeeDry)}</span>
-            </div>
-          )}
-          <div className="flex gap-3 text-[11px] text-muted-foreground justify-center flex-wrap">
-            <span>Rain: {report!.rainfall}"</span>
-            <span>·</span>
-            <span>Squeegees: {report!.squeegee_count}</span>
-          </div>
-          {highHumidity && (
-            <div className="flex items-center justify-center gap-1.5 text-[11px] text-court-amber">
-              <DropletsIcon className="w-3.5 h-3.5" />
-              <span>Humidity &gt;90% — saturated air, 3× dry time (min 180 min)</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!saturatedAirHardLock && !isGoldOverride && status === "caution" && (
-        <div className="text-center space-y-1">
-          <DropletsIcon className="w-6 h-6 text-court-amber mx-auto" />
-          <p className="text-lg font-bold text-court-amber">High Humidity – Saturated Air</p>
-          <p className="text-xs text-muted-foreground">Humidity &gt;90% with recent moisture. Estimated minimum dry time: <span className="font-semibold">{formatDryTime(saturatedAirEstimate)}</span>.</p>
-        </div>
-      )}
-
-      {!saturatedAirHardLock && !isGoldOverride && status === "playable" && (
-        <div className="text-center space-y-1">
-          <Sparkles className="w-6 h-6 text-court-green mx-auto" />
-          <p className="text-lg font-bold text-court-green text-glow">Courts are Dry</p>
-          <p className="text-xs text-muted-foreground">Ready to play</p>
-        </div>
-      )}
-
-      {!report && status === "playable" && (
-        <p className="text-center text-sm text-muted-foreground py-2">No recent reports</p>
-      )}
-
-      {showRainResetNote && (
-        <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
-          <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-destructive">Previous Playable status voided due to new rainfall.</p>
-        </div>
-      )}
-
-      {showActiveStatus && report && <SqueegeeAction report={report} courtId={courtId} />}
-
-      {!saturatedAirHardLock && (showActiveStatus || status === "playable" || isGoldOverride) && report && (
-        <StatusVerification courtId={courtId} reportId={report?.id ?? null} />
+      {/* Verify status */}
+      {latestReport && (
+        <StatusVerification courtId={courtId} reportId={latestReport.id} />
       )}
 
       <TooltipProvider delayDuration={100}>
@@ -388,7 +359,6 @@ function inferAnonCondition(report: Report): AnonCondition {
   if (report.sky_condition === "cloudy" && report.rainfall === 0) return "damp";
   if (report.sky_condition === "rain" && report.estimated_dry_minutes >= 180) return "active_rain";
   if (report.sky_condition === "rain") return "wet";
-  // Fallback heuristics
   if (report.rainfall >= 0.4) return "active_rain";
   if (report.rainfall >= 0.2) return "wet";
   if (report.estimated_dry_minutes > 0) return "damp";
@@ -398,11 +368,11 @@ function inferAnonCondition(report: Report): AnonCondition {
 function isRecentAnonReport(report: Report | null): boolean {
   if (!report) return false;
   const ageMs = Date.now() - new Date(report.created_at).getTime();
-  return ageMs < 2 * 60 * 60 * 1000; // 2 hours
+  return ageMs < 2 * 60 * 60 * 1000;
 }
 
-/* ─── Dry-Clock Forecast Component ─── */
-function DryClockForecast({ weatherData, court, latestReport }: {
+/* ─── Playability Forecast Component ─── */
+function PlayabilityForecast({ weatherData, court, latestReport }: {
   weatherData: WeatherWithHourly;
   court: SovereignCourt;
   latestReport: Report | null;
@@ -410,18 +380,17 @@ function DryClockForecast({ weatherData, court, latestReport }: {
   const [offset, setOffset] = useState("0");
   const [showDetails, setShowDetails] = useState(false);
   const hourly = weatherData.hourly ?? [];
-  // Get recent report (< 6h) rainfall for step 2
+
   const recentReportRainfall = useMemo(() => {
     if (!latestReport) return null;
     const ageH = (Date.now() - new Date(latestReport.created_at).getTime()) / 3600000;
     if (ageH > 6) return null;
-    return latestReport.rainfall; // already in inches from reports table
+    return latestReport.rainfall;
   }, [latestReport]);
 
   const dryClockResult = useMemo(() => {
     const off = parseInt(offset);
     if (off === 0 || !hourly.length) {
-      // Use current weather
       return computeDryClock(
         weatherData.rain_1h ?? 0,
         weatherData.humidity ?? 50,
@@ -432,7 +401,6 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         off === 0 ? recentReportRainfall : null,
       );
     }
-    // Use hourly data for offset
     const h = hourly[off];
     if (!h) {
       return computeDryClock(
@@ -456,10 +424,8 @@ function DryClockForecast({ weatherData, court, latestReport }: {
     );
   }, [offset, hourly, weatherData, court.drainage, court.sun_exposure, recentReportRainfall]);
 
-  // Report tier
   const reportTier = getReportTier(latestReport?.created_at ?? null);
 
-  // Determine colors
   const cardBg = dryClockResult.isActiveRain
     ? "bg-destructive/10 border-destructive/30"
     : dryClockResult.estimatedMinutes <= 0
@@ -476,12 +442,10 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         ? "text-court-amber"
         : "text-destructive";
 
-  // Anonymous report override logic
   const hasRecentReport = isRecentAnonReport(latestReport);
   const anonCondition = hasRecentReport && latestReport ? inferAnonCondition(latestReport) : null;
   const reportAgeText = hasRecentReport && latestReport ? getReportAgeText(latestReport.created_at) : null;
 
-  // Override card styling based on anonymous report
   const overrideCardBg = anonCondition === "active_rain"
     ? "bg-destructive/10 border-destructive/30"
     : anonCondition === "wet"
@@ -503,7 +467,6 @@ function DryClockForecast({ weatherData, court, latestReport }: {
   const finalCardBg = (hasRecentReport && parseInt(offset) === 0 && overrideCardBg) ? overrideCardBg : cardBg;
   const finalTextColor = (hasRecentReport && parseInt(offset) === 0 && overrideTextColor) ? overrideTextColor : textColor;
 
-  // Build override output string for "Now" offset
   const overrideOutput = useMemo(() => {
     if (!hasRecentReport || !latestReport || parseInt(offset) !== 0) return null;
     const condition = inferAnonCondition(latestReport);
@@ -524,7 +487,6 @@ function DryClockForecast({ weatherData, court, latestReport }: {
 
   const showOutput = overrideOutput ?? dryClockResult.outputString;
 
-  // Context label
   const contextLabel = hasRecentReport && reportAgeText
     ? `Community report — ${reportAgeText}`
     : reportTier === "tier2"
@@ -533,7 +495,6 @@ function DryClockForecast({ weatherData, court, latestReport }: {
 
   return (
     <div className="space-y-3">
-      {/* Tier indicator — only show when NOT overridden by recent anon report */}
       {!hasRecentReport && reportTier === "tier1" && latestReport && (
         <div className="bg-card rounded-lg p-3 border border-border">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-1">Forecast context</p>
@@ -551,21 +512,17 @@ function DryClockForecast({ weatherData, court, latestReport }: {
         </div>
       )}
 
-      {!hasRecentReport && reportTier === "tier2" && (
-        <div className="bg-card rounded-lg p-3 border border-border flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">Forecast — no recent reports</p>
-          <a href="/captain" className="text-[11px] text-primary hover:underline font-medium min-h-[44px] flex items-center py-2">
-            On site? Update in 3 taps →
-          </a>
-        </div>
-      )}
-
-      {/* Main Dry-Clock card */}
+      {/* Main Playability Forecast card */}
       <div className={`rounded-lg p-5 border space-y-4 ${finalCardBg}`}>
         <div className="flex items-center justify-between">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
-            Dry-Clock Forecast
-          </span>
+          <div>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium block">
+              Playability Forecast
+            </span>
+            <span className="text-[10px] italic text-muted-foreground/60">
+              Powered by Dry-Clock™
+            </span>
+          </div>
           <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
             <ToggleGroupItem value="0" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
             <ToggleGroupItem value="1" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
@@ -574,26 +531,22 @@ function DryClockForecast({ weatherData, court, latestReport }: {
           </ToggleGroup>
         </div>
 
-        {/* Context label */}
         {contextLabel && parseInt(offset) === 0 && (
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
             {contextLabel}
           </p>
         )}
 
-        {/* Large action-oriented status line */}
         <p className={`text-lg font-bold font-heading leading-snug ${finalTextColor}`}>
           {showOutput}
         </p>
 
-        {/* Active rain from algorithm (only when no anon override) */}
         {!overrideOutput && dryClockResult.isActiveRain && (
           <p className="text-xs text-destructive/80">
             Active rain detected. Forecast will update as conditions change.
           </p>
         )}
 
-        {/* Conditional slip risk warning */}
         {(() => {
           const dnaNote = court.dna_note ?? "";
           const slipKeywords = /slip|hazard|moss|algae|caution/i;
@@ -609,7 +562,6 @@ function DryClockForecast({ weatherData, court, latestReport }: {
           return null;
         })()}
 
-        {/* Expandable calculation details */}
         <button
           onClick={() => setShowDetails(!showDetails)}
           className="flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors min-h-[44px] py-2"
@@ -620,6 +572,9 @@ function DryClockForecast({ weatherData, court, latestReport }: {
 
         {showDetails && (
           <div className="bg-secondary/50 rounded-lg p-3 space-y-1.5 text-xs text-muted-foreground">
+            <p className="text-xs text-foreground/80 leading-relaxed mb-2">
+              CourtReady's Dry-Clock™ model combines hyperlocal weather data, court drainage profiles, and community reports to estimate when your court will be playable.
+            </p>
             <div className="flex justify-between">
               <span>Rainfall</span>
               <span className="font-medium text-foreground">{dryClockResult.inputs.rainfallInches.toFixed(2)}″</span>
@@ -846,22 +801,6 @@ export default function CourtDetail() {
     enabled: !!id,
   });
 
-  const forceCreateSubCourtsMutation = useMutation({
-    mutationFn: async () => {
-      const rows = Array.from({ length: 4 }, (_, index) => ({
-        facility_id: id!,
-        court_number: index + 1,
-        sun_exposure: 3,
-        drainage: 3,
-      }));
-      const { error } = await (supabase.from("sub_courts") as any).insert(rows);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sub-courts", id] });
-    },
-  });
-
   const { data: court, isLoading } = useQuery<SovereignCourt>({
     queryKey: ["court", id],
     queryFn: async () => {
@@ -935,12 +874,44 @@ export default function CourtDetail() {
   const rainResetActive = latestObservation?.status === "playable" && currentRain1h > 0;
   const effectiveObservation = rainResetActive ? null : latestObservation;
 
-  // Compute forecastNowScore for Unified Truth
-  const forecastNowScore = useMemo(() => {
-    if (!weatherData?.hourly || weatherData.hourly.length === 0) return null;
-    const { score } = calculatePlayability(weatherData.hourly as HourlyEntry[], 0, court?.drainage ?? 3, latestReport);
-    return score;
-  }, [weatherData?.hourly, court?.drainage, latestReport]);
+  // Compute Dry-Clock results for Now and future offsets
+  const recentReportRainfall = useMemo(() => {
+    if (!latestReport) return null;
+    const ageH = (Date.now() - new Date(latestReport.created_at).getTime()) / 3600000;
+    if (ageH > 6) return null;
+    return latestReport.rainfall;
+  }, [latestReport]);
+
+  const dryClockNow = useMemo(() => {
+    if (!weatherData) return null;
+    return computeDryClock(
+      weatherData.rain_1h ?? 0,
+      weatherData.humidity ?? 50,
+      weatherData.wind_speed ?? 5,
+      weatherData.description ?? "",
+      court?.drainage ?? 3,
+      court?.sun_exposure ?? 3,
+      recentReportRainfall,
+    );
+  }, [weatherData, court?.drainage, court?.sun_exposure, recentReportRainfall]);
+
+  const dryClockFuture = useMemo(() => {
+    if (!weatherData) return [];
+    const hourly = (weatherData as WeatherWithHourly).hourly ?? [];
+    return [1, 2, 3].map(off => {
+      const h = hourly[off];
+      const result = computeDryClock(
+        h?.rain_1h ?? weatherData.rain_1h ?? 0,
+        h?.humidity ?? weatherData.humidity ?? 50,
+        h?.wind_speed ?? weatherData.wind_speed ?? 5,
+        h?.description ?? weatherData.description ?? "",
+        court?.drainage ?? 3,
+        court?.sun_exposure ?? 3,
+        null,
+      );
+      return { offset: off, result };
+    });
+  }, [weatherData, court?.drainage, court?.sun_exposure]);
 
   if (isLoading) {
     return (
@@ -994,15 +965,33 @@ export default function CourtDetail() {
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
 
         <div data-tour="pulse">
-          <StatusCard report={latestReport} courtId={court.id} latestObservation={effectiveObservation} currentHumidity={weatherData?.humidity} recentRain={currentRain1h > 0} forecastScore={forecastNowScore} currentRain1h={currentRain1h} />
+          <StatusCard
+            dryClockNow={dryClockNow}
+            dryClockFuture={dryClockFuture}
+            latestReport={latestReport}
+            courtId={court.id}
+            latestObservation={effectiveObservation}
+          />
         </div>
 
         {weatherData && (
-          <DryClockForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
+          <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
 
-        {/* Anonymous Condition Report */}
-        <ConditionReportFlow courtId={court.id} />
+        {/* Action Buttons — stacked vertically */}
+        <div className="space-y-2">
+          {/* Button 1: Captain's action — Send the Call */}
+          <button
+            onClick={() => navigate(`/captain?court=${court.id}`)}
+            className="w-full py-3 rounded-lg text-sm font-bold tracking-wide active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#0A2342", color: "#C9F000" }}
+          >
+            Send the Call →
+          </button>
+
+          {/* Button 2: Reporter action — report conditions */}
+          <ConditionReportFlow courtId={court.id} variant="secondary" />
+        </div>
 
         {/* Today's report count */}
         <TodayReportCount courtId={court.id} />
@@ -1012,18 +1001,6 @@ export default function CourtDetail() {
             <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
             <p className="text-xs text-destructive">Previous Playable status voided due to new rainfall detected by weather API.</p>
           </div>
-        )}
-
-        {(!subCourts || subCourts.length === 0) && (
-          <button
-            onClick={() => forceCreateSubCourtsMutation.mutate()}
-            disabled={forceCreateSubCourtsMutation.isPending}
-            className="w-full bg-accent text-accent-foreground border border-accent/40 font-extrabold py-4 rounded-xl text-sm tracking-wide shadow-lg hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-60"
-          >
-            {forceCreateSubCourtsMutation.isPending
-              ? "Creating Initial Courts..."
-              : "Create Initial Courts"}
-          </button>
         )}
 
         {!showForm && (
