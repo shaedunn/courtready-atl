@@ -1085,11 +1085,6 @@ export default function CourtDetail() {
             For captains — broadcast live status to your team and opponents in 3 taps.
           </p>
 
-          {/* Button 2: Reporter action — report conditions */}
-          <ConditionReportFlow courtId={court.id} variant="secondary" />
-          <p className="text-xs text-muted-foreground text-center">
-            For players — share your real-time on-court assessment with the community.
-          </p>
         </div>
 
         {/* Report count removed — button CTA is sufficient */}
