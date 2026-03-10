@@ -191,6 +191,20 @@ export default function CaptainDashboard() {
           </div>
         )}
 
+        {/* Show selected non-pinned court */}
+        {selectedNonPinnedCourt && !showSearch && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border bg-primary text-primary-foreground border-primary">
+              {selectedNonPinnedCourt.name}
+            </span>
+            <button
+              onClick={() => { setSelectedCourt(""); setShowSearch(true); }}
+              className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              Change
+            </button>
+          </div>
+        )}
         {/* Search toggle / field */}
         {hasPinned && !showSearch ? (
           <button
