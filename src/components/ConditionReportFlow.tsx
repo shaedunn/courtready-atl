@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/drawer";
 
 type Condition = "dry" | "damp" | "wet" | "active_rain";
-type EffortTag = "Squeegees out" | "Blowers active" | "Debris on court" | "All clear";
+type EffortTag = "Squeegees out" | "Blowers active" | "Debris on court" | "Bird-bath flooding" | "All clear";
 
 const CONDITIONS: { value: Condition; emoji: string; label: string; description: string }[] = [
   { value: "dry", emoji: "🟢", label: "Dry", description: "courts are playable" },
