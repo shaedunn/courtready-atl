@@ -161,7 +161,6 @@ export default function CaptainDashboard() {
       await navigator.clipboard.writeText(url);
       toast({ title: "Link copied!", description: url });
       setAwayTeam("");
-      setMatchTime("");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
