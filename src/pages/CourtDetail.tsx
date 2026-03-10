@@ -1044,10 +1044,6 @@ export default function CourtDetail() {
         )}
 
 
-        <div data-tour="sub-court-editor">
-          <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
-        </div>
-
         {/* Court Profile (DNA note) */}
         {court.dna_note && (
           <div className="bg-card rounded-lg p-5 border border-border">
@@ -1060,6 +1056,18 @@ export default function CourtDetail() {
           <CaptainsLog court={court} />
         </div>
       </main>
+
+      {/* DNA Editing Sheet */}
+      <Sheet open={showDnaSheet} onOpenChange={setShowDnaSheet}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-sm font-bold">{court.name} — Court Ratings</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4" data-tour="sub-court-editor">
+            <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {showTour && <GuidedTour onComplete={() => setShowTour(false)} />}
       {showCelebration && <CelebrationOverlay onDone={() => setShowCelebration(false)} />}
