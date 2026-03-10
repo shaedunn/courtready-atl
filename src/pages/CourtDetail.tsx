@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown, X } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import ConditionReportFlow from "@/components/ConditionReportFlow";
+
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
@@ -1085,11 +1085,6 @@ export default function CourtDetail() {
             For captains — broadcast live status to your team and opponents in 3 taps.
           </p>
 
-          {/* Button 2: Reporter action — report conditions */}
-          <ConditionReportFlow courtId={court.id} variant="secondary" />
-          <p className="text-xs text-muted-foreground text-center">
-            For players — share your real-time on-court assessment with the community.
-          </p>
         </div>
 
         {/* Report count removed — button CTA is sufficient */}
