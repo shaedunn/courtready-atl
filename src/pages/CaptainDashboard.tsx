@@ -89,6 +89,16 @@ export default function CaptainDashboard() {
   // Auto-select: preselected > first pinned > empty
   const activeCourt = selectedCourt || pinnedCourts[0]?.id || "";
 
+  // Auto-populate home team with selected facility name
+  const activeCourtName = courts?.find(c => c.id === activeCourt)?.name ?? "";
+  const [lastAutoName, setLastAutoName] = useState("");
+  if (activeCourtName && activeCourtName !== lastAutoName) {
+    if (!homeTeam || homeTeam === lastAutoName) {
+      setHomeTeam(activeCourtName);
+    }
+    setLastAutoName(activeCourtName);
+  }
+
   const toggleEffort = (tag: string) => {
     setEffortTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
