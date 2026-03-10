@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown, X } from "lucide-react";
+import { ArrowLeft, Clock, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown, X } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import ConditionReportFlow from "@/components/ConditionReportFlow";
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
@@ -706,79 +706,6 @@ function StatusCardSkeleton() {
   );
 }
 
-/* ─── Captain's Log ─── */
-function CaptainsLog({ court }: { court: SovereignCourt }) {
-  const [logText, setLogText] = useState("");
-  const [logAuthor, setLogAuthor] = useState(getDisplayName() || "");
-  const queryClient = useQueryClient();
-
-  const { data: logs = [] } = useQuery({
-    queryKey: ["court-logs", court.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("court_logs")
-        .select("*")
-        .eq("court_id", court.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const submitLog = useMutation({
-    mutationFn: async () => {
-      if (!logText.trim()) return;
-      const author = logAuthor.trim() || "Anonymous";
-      if (logAuthor.trim()) setDisplayName(logAuthor.trim());
-      const { error } = await supabase.from("court_logs").insert({
-        court_id: court.id,
-        author,
-        message: logText.trim(),
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["court-logs", court.id] });
-      setLogText("");
-    },
-  });
-
-  return (
-    <div className="bg-card rounded-lg p-5 border border-border card-glow">
-      <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-4">Captain's Log</h3>
-      <div className="flex gap-2 mb-4">
-        <input type="text" value={logAuthor} onChange={(e) => setLogAuthor(e.target.value)} placeholder="Name"
-          className="w-24 bg-secondary text-foreground rounded-lg px-3 py-2 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50" />
-        <input type="text" value={logText} onChange={(e) => setLogText(e.target.value)} placeholder="Leave a note..."
-          onKeyDown={(e) => e.key === "Enter" && submitLog.mutate()}
-          className="flex-1 bg-secondary text-foreground rounded-lg px-3 py-2 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50" />
-        <button onClick={() => submitLog.mutate()}
-          className="p-2.5 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 active:scale-95 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center">
-          <Send className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="space-y-2 max-h-64 overflow-y-auto">
-        {logs.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-4">No notes yet</p>
-        ) : (
-          logs.map((entry) => (
-            <div key={entry.id} className="text-sm border-l-2 border-border pl-3 py-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-medium text-xs">{entry.author}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {new Date(entry.created_at).toLocaleDateString()} {new Date(entry.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">{entry.message}</p>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Main Page ─── */
 export default function CourtDetail() {
   const { id } = useParams<{ id: string }>();
@@ -1052,9 +979,6 @@ export default function CourtDetail() {
           </div>
         )}
 
-        <div data-tour="hazard-button">
-          <CaptainsLog court={court} />
-        </div>
       </main>
 
       {/* DNA Editing Sheet */}
