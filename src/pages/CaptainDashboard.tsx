@@ -269,7 +269,6 @@ export default function CaptainDashboard() {
           onChange={(e) => {
             setCaptainName(e.target.value);
             localStorage.setItem("courtready-display-name", e.target.value);
-            setHomeTeam(e.target.value);
           }}
           placeholder="Captain name"
         />
