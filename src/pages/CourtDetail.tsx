@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import ReportForm from "@/components/court/ReportForm";
+
 import SubCourtEditor from "@/components/court/SubCourtEditor";
 import GuidedTour, { shouldShowTour } from "@/components/GuidedTour";
 import CelebrationOverlay, { shouldCelebrate, markCelebrated } from "@/components/CelebrationOverlay";
