@@ -392,6 +392,16 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
   const [showDetails, setShowDetails] = useState(false);
   const hourly = weatherData.hourly ?? [];
 
+  // Generate clock-time labels for tabs
+  const tabLabels = useMemo(() => {
+    const now = new Date();
+    return [0, 1, 2, 3].map(off => {
+      if (off === 0) return "Now";
+      const future = new Date(now.getTime() + off * 3600000);
+      return future.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+    });
+  }, []);
+
   const recentReportRainfall = useMemo(() => {
     if (!latestReport) return null;
     const ageH = (Date.now() - new Date(latestReport.created_at).getTime()) / 3600000;
@@ -492,34 +502,56 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (remainingMinutes > 0 || prevIsActiveRain) {
         // Still recovering or transitioning from active rain
         const effectiveMinutes = Math.max(remainingMinutes, prevIsActiveRain ? 30 : 0);
-        const formatPlayableTime = (mins: number) => {
-          const target = new Date(Date.now() + mins * 60000);
-          return target.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
-        };
-        const effort = effectiveMinutes <= 30 ? "Light effort"
-          : effectiveMinutes <= 60 ? "Moderate effort"
-          : effectiveMinutes <= 120 ? "Full effort"
-          : "Heavy effort";
-        const action = effectiveMinutes <= 30 ? "bring towels"
-          : effectiveMinutes <= 60 ? "squeegees recommended"
-          : effectiveMinutes <= 120 ? "blowers + squeegees needed"
-          : "full court press required";
-        const playableTime = formatPlayableTime(effectiveMinutes);
+        const effort = effectiveMinutes <= 30 ? "light effort"
+          : effectiveMinutes <= 60 ? "moderate effort"
+          : effectiveMinutes <= 120 ? "full effort"
+          : "heavy effort";
+        const durationStr = effectiveMinutes <= 60
+          ? `within ${effectiveMinutes} minutes`
+          : `within ${Math.round(effectiveMinutes / 60)} hour${Math.round(effectiveMinutes / 60) > 1 ? "s" : ""}`;
 
         const outputString = prevIsActiveRain
-          ? `Rain clearing. Estimated playable by ${playableTime} with ${effort.toLowerCase()} — conditions improving.`
-          : `Post-rain recovery. Estimated playable by ${playableTime} with ${effort.toLowerCase()} (${action}).`;
+          ? `Rain clearing — playable ${durationStr} with ${effort} once rain stops.`
+          : `Post-rain recovery — playable ${durationStr} with ${effort}.`;
 
         return {
           ...recoveryResult,
           estimatedMinutes: effectiveMinutes,
-          estimatedPlayableTime: playableTime,
+          estimatedPlayableTime: null,
           effortLevel: effort,
-          action,
+          action: "",
           outputString,
           isActiveRain: false,
         };
       }
+    }
+
+    // For future tabs, override output to use relative duration format
+    if (off > 0) {
+      if (baseResult.isActiveRain) {
+        return {
+          ...baseResult,
+          outputString: "Active rain — check back as conditions develop.",
+        };
+      }
+      if (baseResult.estimatedMinutes <= 0) {
+        return {
+          ...baseResult,
+          outputString: "Courts dry — ready to play.",
+        };
+      }
+      const mins = baseResult.estimatedMinutes;
+      const effort = mins <= 30 ? "light effort"
+        : mins <= 60 ? "moderate effort"
+        : mins <= 120 ? "full effort"
+        : "heavy effort";
+      const durationStr = mins <= 60
+        ? `within ${mins} minutes`
+        : `within ${Math.round(mins / 60)} hour${Math.round(mins / 60) > 1 ? "s" : ""}`;
+      return {
+        ...baseResult,
+        outputString: `Post-rain recovery — playable ${durationStr} with ${effort}.`,
+      };
     }
 
     return baseResult;
@@ -625,10 +657,11 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
             </span>
           </div>
           <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
-            <ToggleGroupItem value="0" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">Now</ToggleGroupItem>
-            <ToggleGroupItem value="1" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+1h</ToggleGroupItem>
-            <ToggleGroupItem value="2" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+2h</ToggleGroupItem>
-            <ToggleGroupItem value="3" className="text-xs px-4 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">+3h</ToggleGroupItem>
+            {tabLabels.map((label, i) => (
+              <ToggleGroupItem key={i} value={String(i)} className="text-xs px-3 min-h-[44px] py-2 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground rounded-md">
+                {label}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
         </div>
 
@@ -998,8 +1031,7 @@ export default function CourtDetail() {
           </p>
         </div>
 
-        {/* Today's report count */}
-        <TodayReportCount courtId={court.id} />
+        {/* Report count removed — button CTA is sufficient */}
 
         {rainResetActive && (
           <div className="flex items-start gap-2 bg-destructive/10 rounded-lg p-3 border border-destructive/20">
