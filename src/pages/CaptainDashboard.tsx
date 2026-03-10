@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -50,9 +50,8 @@ export default function CaptainDashboard() {
   const [captainName, setCaptainName] = useState(
     () => localStorage.getItem("courtready-display-name") || "Captain"
   );
-  const [homeTeam, setHomeTeam] = useState(() => captainName);
+  const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
-  const [matchTime, setMatchTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [facilitySearch, setFacilitySearch] = useState("");
@@ -89,6 +88,16 @@ export default function CaptainDashboard() {
 
   // Auto-select: preselected > first pinned > empty
   const activeCourt = selectedCourt || pinnedCourts[0]?.id || "";
+
+  // Auto-populate home team with selected facility name
+  const activeCourtName = courts?.find(c => c.id === activeCourt)?.name ?? "";
+  const lastAutoRef = useRef("");
+  useEffect(() => {
+    if (activeCourtName && activeCourtName !== lastAutoRef.current) {
+      setHomeTeam(prev => (!prev || prev === lastAutoRef.current) ? activeCourtName : prev);
+      lastAutoRef.current = activeCourtName;
+    }
+  }, [activeCourtName]);
 
   const toggleEffort = (tag: string) => {
     setEffortTags((prev) =>
@@ -133,7 +142,7 @@ export default function CaptainDashboard() {
   };
 
   const createMatch = async () => {
-    if (!activeCourt || !homeTeam || !awayTeam || !matchTime) {
+    if (!activeCourt || !homeTeam || !awayTeam) {
       toast({ title: "Fill in all match fields", variant: "destructive" });
       return;
     }
@@ -144,7 +153,7 @@ export default function CaptainDashboard() {
         court_id: activeCourt,
         home_team: homeTeam,
         away_team: awayTeam,
-        match_time: new Date(matchTime).toISOString(),
+        match_time: new Date().toISOString(),
         share_slug: slug,
       });
       if (error) throw error;
@@ -152,7 +161,6 @@ export default function CaptainDashboard() {
       await navigator.clipboard.writeText(url);
       toast({ title: "Link copied!", description: url });
       setAwayTeam("");
-      setMatchTime("");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -261,7 +269,6 @@ export default function CaptainDashboard() {
           onChange={(e) => {
             setCaptainName(e.target.value);
             localStorage.setItem("courtready-display-name", e.target.value);
-            setHomeTeam(e.target.value);
           }}
           placeholder="Captain name"
         />
@@ -391,16 +398,16 @@ export default function CaptainDashboard() {
               onChange={(e) => setHomeTeam(e.target.value)}
             />
           </div>
-          <Input
-            placeholder="Away team"
-            value={awayTeam}
-            onChange={(e) => setAwayTeam(e.target.value)}
-          />
-          <Input
-            type="datetime-local"
-            value={matchTime}
-            onChange={(e) => setMatchTime(e.target.value)}
-          />
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">
+              Away Team
+            </label>
+            <Input
+              placeholder="Away team"
+              value={awayTeam}
+              onChange={(e) => setAwayTeam(e.target.value)}
+            />
+          </div>
           <Button
             className="w-full"
             disabled={submitting || !activeCourt}
