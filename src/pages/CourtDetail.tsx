@@ -828,7 +828,6 @@ export default function CourtDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
   // Realtime subscriptions for reports & court_status
