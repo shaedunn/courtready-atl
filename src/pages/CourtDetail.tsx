@@ -196,7 +196,7 @@ const CONDITION_DISPLAY: Record<NowCondition, { label: string; color: string; do
 };
 
 /* ─── Status Card (Condition + Outlook) ─── */
-function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latestObservation }: {
+function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latestObservation, weatherData }: {
   dryClockNow: DryClockResult | null;
   dryClockFuture: { offset: number; result: DryClockResult }[];
   latestReport: Report | null;
