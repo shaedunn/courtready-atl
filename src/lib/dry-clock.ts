@@ -3,6 +3,9 @@
  *
  * Computes an action-oriented status string from weather + court data.
  * No new tables — uses existing courts, weather_cache, and reports.
+ *
+ * NOTE: rain1h from OpenWeather One Call API is in MILLIMETERS.
+ * All internal calculations use inches. Conversion: 1mm = 0.0394 inches.
  */
 
 export type DryClockResult = {
@@ -22,6 +25,11 @@ export type DryClockResult = {
     description: string;
   };
 };
+
+/* mm → inches */
+function mmToInches(mm: number): number {
+  return mm * 0.0394;
+}
 
 /* Step 4 — Drainage modifier */
 function drainageModifier(rating: number): number {
@@ -49,7 +57,7 @@ function skyModifier(desc: string): number {
   const d = desc.toLowerCase();
   if (d.includes("clear")) return 0.8;
   if (d.includes("overcast")) return 1.2;
-  return 1.0; // includes 'cloud' and anything else
+  return 1.0;
 }
 
 /* Step 6 — Sun exposure modifier */
@@ -68,20 +76,21 @@ function mapEffort(minutes: number): { effort: string; action: string } {
   return { effort: "Heavy effort", action: "full court press required" };
 }
 
-/* Step 8 — Weather event string */
-function weatherEventString(rain1h: number, description: string): string {
+/* Step 8 — Weather event string (rain1h in mm) */
+function weatherEventString(rain1h_mm: number, description: string): string {
   const d = description.toLowerCase();
   const isActive = d.includes("rain") || d.includes("thunderstorm");
+  const rain_in = mmToInches(rain1h_mm);
 
-  if (rain1h <= 0) return "Dry conditions.";
-  if (rain1h < 0.1) return "Light mist.";
+  if (rain1h_mm <= 0) return "Dry conditions.";
+  if (rain_in < 0.1) return "Light mist.";
 
   let event: string;
-  if (rain1h <= 0.25) event = `Brief shower (${rain1h.toFixed(1)}″).`;
-  else if (rain1h <= 0.5) event = `Steady rain (${rain1h.toFixed(1)}″).`;
-  else event = `Heavy rain (${rain1h.toFixed(1)}″).`;
+  if (rain_in <= 0.25) event = `Brief shower (${rain_in.toFixed(2)}″).`;
+  else if (rain_in <= 0.5) event = `Steady rain (${rain_in.toFixed(2)}″).`;
+  else event = `Heavy rain (${rain_in.toFixed(2)}″).`;
 
-  if (isActive && rain1h > 0.1) return `Active rain — ${event}`;
+  if (isActive && rain_in > 0.1) return `Active rain — ${event}`;
   return event;
 }
 
@@ -93,24 +102,36 @@ function formatPlayableTime(minutesFromNow: number): string {
 
 /**
  * Core Dry-Clock calculation.
+ *
+ * @param rain1h_mm       - rainfall in MILLIMETERS (from OpenWeather)
+ * @param humidity        - relative humidity %
+ * @param windSpeed       - wind speed mph
+ * @param description     - weather description string
+ * @param courtDrainage   - drainage rating 1-5
+ * @param courtSunExposure - sun exposure rating 1-5
+ * @param recentReportRainfall_mm - rainfall from a recent community report, in MM (or null)
  */
 export function computeDryClock(
-  rain1h: number,
+  rain1h_mm: number,
   humidity: number,
   windSpeed: number,
   description: string,
   courtDrainage: number,
   courtSunExposure: number,
-  recentReportRainfallInches: number | null,
+  recentReportRainfall_mm: number | null,
 ): DryClockResult {
   const desc = description || "";
-  const isActiveRain = (desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("thunderstorm")) && rain1h > 0.1;
+  const isActiveRain =
+    (desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("thunderstorm")) &&
+    rain1h_mm > 2.54; // 2.54mm = 0.1 inches threshold
 
-  // Step 2 — rainfall source
-  const rainfallInches = recentReportRainfallInches != null ? recentReportRainfallInches : rain1h;
+  // Step 2 — rainfall source: prefer community report if available
+  const rawRainfall_mm =
+    recentReportRainfall_mm != null ? recentReportRainfall_mm : rain1h_mm;
+  const rainfallInches = mmToInches(rawRainfall_mm);
 
-  // Weather event
-  const weatherEvent = weatherEventString(rain1h, desc);
+  // Weather event string
+  const weatherEvent = weatherEventString(rain1h_mm, desc);
 
   // Active rain short-circuit
   if (isActiveRain) {
@@ -122,12 +143,20 @@ export function computeDryClock(
       estimatedMinutes: -1,
       estimatedPlayableTime: null,
       isActiveRain: true,
-      inputs: { rainfallInches, drainageRating: courtDrainage, humidity, windSpeed, sunExposure: courtSunExposure, description: desc },
+      inputs: {
+        rainfallInches,
+        drainageRating: courtDrainage,
+        humidity,
+        windSpeed,
+        sunExposure: courtSunExposure,
+        description: desc,
+      },
     };
   }
 
-  // Step 3 — Base dry time
-  const baseDryMinutes = rainfallInches * 60;
+  // Step 3 — Base dry time from rainfall in inches
+  // Empirical baseline: 1 inch of rain on an average court = ~120 minutes to dry
+  const baseDryMinutes = rainfallInches * 120;
 
   // Steps 4-6 — Apply modifiers
   let minutes = baseDryMinutes;
@@ -158,14 +187,21 @@ export function computeDryClock(
     estimatedMinutes: minutes,
     estimatedPlayableTime: minutes > 0 ? formatPlayableTime(minutes) : null,
     isActiveRain: false,
-    inputs: { rainfallInches, drainageRating: courtDrainage, humidity, windSpeed, sunExposure: courtSunExposure, description: desc },
+    inputs: {
+      rainfallInches,
+      drainageRating: courtDrainage,
+      humidity,
+      windSpeed,
+      sunExposure: courtSunExposure,
+      description: desc,
+    },
   };
 }
 
 /**
  * Determine report tier.
  * Tier 1: report < 2h old (human report primary)
- * Tier 2: no report or > 2h old (Dry-Clock primary)
+ * Tier 2: no report or > 4h old (Dry-Clock primary)
  * Stale: 2-4h old (show warning)
  */
 export type ReportTier = "tier1" | "tier2" | "stale";
