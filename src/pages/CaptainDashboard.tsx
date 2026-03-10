@@ -50,9 +50,8 @@ export default function CaptainDashboard() {
   const [captainName, setCaptainName] = useState(
     () => localStorage.getItem("courtready-display-name") || "Captain"
   );
-  const [homeTeam, setHomeTeam] = useState(() => captainName);
+  const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
-  const [matchTime, setMatchTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [facilitySearch, setFacilitySearch] = useState("");
