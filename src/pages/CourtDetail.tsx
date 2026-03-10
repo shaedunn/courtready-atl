@@ -1013,7 +1013,7 @@ export default function CourtDetail() {
         )}
 
         {/* Action Buttons — stacked vertically */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           {/* Button 1: Captain's action — Send the Call */}
           <button
             onClick={() => navigate(`/captain?court=${court.id}`)}
@@ -1022,9 +1022,15 @@ export default function CourtDetail() {
           >
             Send the Call →
           </button>
+          <p className="text-xs text-muted-foreground text-center pb-3">
+            For captains — broadcast live status to your team and opponents in 3 taps.
+          </p>
 
           {/* Button 2: Reporter action — report conditions */}
           <ConditionReportFlow courtId={court.id} variant="secondary" />
+          <p className="text-xs text-muted-foreground text-center">
+            For players — share your real-time on-court assessment with the community.
+          </p>
         </div>
 
         {/* Today's report count */}
