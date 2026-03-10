@@ -408,11 +408,6 @@ export default function CaptainDashboard() {
               onChange={(e) => setAwayTeam(e.target.value)}
             />
           </div>
-          <Input
-            type="datetime-local"
-            value={matchTime}
-            onChange={(e) => setMatchTime(e.target.value)}
-          />
           <Button
             className="w-full"
             disabled={submitting || !activeCourt}
