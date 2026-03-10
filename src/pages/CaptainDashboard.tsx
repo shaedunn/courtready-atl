@@ -153,7 +153,7 @@ export default function CaptainDashboard() {
         court_id: activeCourt,
         home_team: homeTeam,
         away_team: awayTeam,
-        match_time: new Date(matchTime).toISOString(),
+        match_time: new Date().toISOString(),
         share_slug: slug,
       });
       if (error) throw error;
