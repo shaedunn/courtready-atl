@@ -17,6 +17,7 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
   const [drainVal, setDrainVal] = useState(3);
   const [noteVal, setNoteVal] = useState("");
   const [hazardVal, setHazardVal] = useState("");
+  const [surfaceVal, setSurfaceVal] = useState("hard");
 
   const { data: subCourts = [] } = useQuery<SubCourt[]>({
     queryKey: ["sub-courts", courtId],
