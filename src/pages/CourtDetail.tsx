@@ -429,10 +429,35 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       null,
     );
 
-    // If this hour already shows rain/active rain, no recovery adjustment needed
-    if (baseResult.isActiveRain || baseResult.estimatedMinutes > 0) {
+    // If this hour itself shows active rain, return as-is
+    if (baseResult.isActiveRain) {
       return baseResult;
     }
+
+    // Check what the preceding hour looks like to enforce transition rules
+    const prevOff = off - 1;
+    const prevResult = prevOff === 0
+      ? computeDryClock(
+          weatherData.rain_1h ?? 0,
+          weatherData.humidity ?? 50,
+          weatherData.wind_speed ?? 5,
+          weatherData.description ?? "",
+          court.drainage,
+          court.sun_exposure,
+          prevOff === 0 ? recentReportRainfall : null,
+        )
+      : (() => {
+          const ph = hourly[prevOff];
+          return computeDryClock(
+            ph?.rain_1h ?? 0,
+            ph?.humidity ?? weatherData.humidity ?? 50,
+            ph?.wind_speed ?? weatherData.wind_speed ?? 5,
+            ph?.description ?? weatherData.description ?? "",
+            court.drainage,
+            court.sun_exposure,
+            null,
+          );
+        })();
 
     // Check prior hours for accumulated rainfall that needs drainage recovery
     const priorHours = hourly.slice(0, off);
@@ -440,10 +465,18 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
     const totalPriorRain = priorHours.reduce((sum, ph) => sum + (ph.rain_1h ?? 0), nowRain);
     const priorHadRain = totalPriorRain > 0.05; // more than mist
 
-    if (priorHadRain) {
-      // Compute full recovery time from the accumulated rainfall using current hour's conditions
+    // Enforce transition: cannot go from Active Rain → Courts Ready without intermediate state
+    const prevIsActiveRain = prevResult.isActiveRain;
+    const prevIsWet = prevResult.estimatedMinutes > 60;
+
+    if (priorHadRain || prevIsActiveRain || prevIsWet) {
+      // Compute full recovery time from the accumulated rainfall
+      const rainForRecovery = prevIsActiveRain
+        ? Math.max(totalPriorRain, 0.25) // Minimum rain assumption after active rain
+        : totalPriorRain;
+
       const recoveryResult = computeDryClock(
-        totalPriorRain,
+        rainForRecovery,
         futureHumidity,
         futureWind,
         futureDesc,
@@ -456,29 +489,34 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       const elapsedMinutes = off * 60;
       const remainingMinutes = Math.max(0, recoveryResult.estimatedMinutes - elapsedMinutes);
 
-      if (remainingMinutes > 0) {
-        // Still recovering — return a modified result showing remaining dry time
+      if (remainingMinutes > 0 || prevIsActiveRain) {
+        // Still recovering or transitioning from active rain
+        const effectiveMinutes = Math.max(remainingMinutes, prevIsActiveRain ? 30 : 0);
         const formatPlayableTime = (mins: number) => {
           const target = new Date(Date.now() + mins * 60000);
           return target.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
         };
-        const effort = remainingMinutes <= 30 ? "Light effort"
-          : remainingMinutes <= 60 ? "Moderate effort"
-          : remainingMinutes <= 120 ? "Full effort"
+        const effort = effectiveMinutes <= 30 ? "Light effort"
+          : effectiveMinutes <= 60 ? "Moderate effort"
+          : effectiveMinutes <= 120 ? "Full effort"
           : "Heavy effort";
-        const action = remainingMinutes <= 30 ? "bring towels"
-          : remainingMinutes <= 60 ? "squeegees recommended"
-          : remainingMinutes <= 120 ? "blowers + squeegees needed"
+        const action = effectiveMinutes <= 30 ? "bring towels"
+          : effectiveMinutes <= 60 ? "squeegees recommended"
+          : effectiveMinutes <= 120 ? "blowers + squeegees needed"
           : "full court press required";
-        const playableTime = formatPlayableTime(remainingMinutes);
+        const playableTime = formatPlayableTime(effectiveMinutes);
+
+        const outputString = prevIsActiveRain
+          ? `Rain clearing. Estimated playable by ${playableTime} with ${effort.toLowerCase()} — conditions improving.`
+          : `Post-rain recovery. Estimated playable by ${playableTime} with ${effort.toLowerCase()} (${action}).`;
 
         return {
           ...recoveryResult,
-          estimatedMinutes: remainingMinutes,
+          estimatedMinutes: effectiveMinutes,
           estimatedPlayableTime: playableTime,
           effortLevel: effort,
           action,
-          outputString: `Post-rain recovery. Estimated playable by ${playableTime} with ${effort.toLowerCase()} (${action}).`,
+          outputString,
           isActiveRain: false,
         };
       }
