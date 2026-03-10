@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { Sun, Droplets, Save, Plus, AlertTriangle, ShieldAlert, Pencil } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { SubCourt } from "@/components/court/SubCourtSelector";
 
 const SUN_LABELS: Record<number, string> = { 1: "Full Shade", 2: "Mostly Shade", 3: "Mixed", 4: "Mostly Sun", 5: "Full Sun" };
