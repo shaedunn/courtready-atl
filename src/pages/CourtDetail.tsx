@@ -989,7 +989,7 @@ export default function CourtDetail() {
               <p className="text-xs text-accent-foreground/70 truncate">{court.location}</p>
             </div>
           </div>
-          <button onClick={() => navigate(`/court/${id}/admin`)} className="p-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Facility Setup">
+          <button onClick={() => setShowDnaSheet(true)} className="p-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Facility Setup">
             <Settings className="w-5 h-5 text-accent-foreground/70" />
           </button>
         </div>
