@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import SubCourtEditor from "@/components/court/SubCourtEditor";
 import GuidedTour, { shouldShowTour } from "@/components/GuidedTour";
-import CelebrationOverlay, { shouldCelebrate, markCelebrated } from "@/components/CelebrationOverlay";
+import CelebrationOverlay from "@/components/CelebrationOverlay";
 import type { SubCourtRow } from "@/types/supabase";
 
 type Report = Tables<"reports">;
