@@ -108,40 +108,24 @@ export default function SubCourtEditor({ courtId, courtCount }: { courtId: strin
     (n) => !existingNumbers.includes(n)
   );
 
-  if (!editing) {
-    return (
-      <div className="space-y-2">
-        <button
-          onClick={() => setEditing(true)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Pencil className="w-3.5 h-3.5" />
-          Edit Court Ratings
-        </button>
-        {subCourts.length === 0 && courtCount > 0 && (
-          <button
-            onClick={() => seedAllMutation.mutate()}
-            disabled={seedAllMutation.isPending}
-            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-50"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {seedAllMutation.isPending ? "Adding..." : `Add Courts 1–${courtCount}`}
-          </button>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-card rounded-lg p-4 border border-border space-y-3">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
           Court Ratings & Notes
         </h3>
-        <button onClick={() => { setEditing(false); setEditingCourt(null); }} className="p-1 rounded hover:bg-secondary transition-colors">
-          <X className="w-4 h-4 text-muted-foreground" />
-        </button>
       </div>
+
+      {subCourts.length === 0 && courtCount > 0 && (
+        <button
+          onClick={() => seedAllMutation.mutate()}
+          disabled={seedAllMutation.isPending}
+          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-50"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {seedAllMutation.isPending ? "Adding..." : `Add Courts 1–${courtCount}`}
+        </button>
+      )}
 
       {/* List existing sub-courts */}
       <div className="space-y-2">
