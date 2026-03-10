@@ -398,11 +398,16 @@ export default function CaptainDashboard() {
               onChange={(e) => setHomeTeam(e.target.value)}
             />
           </div>
-          <Input
-            placeholder="Away team"
-            value={awayTeam}
-            onChange={(e) => setAwayTeam(e.target.value)}
-          />
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">
+              Away Team
+            </label>
+            <Input
+              placeholder="Away team"
+              value={awayTeam}
+              onChange={(e) => setAwayTeam(e.target.value)}
+            />
+          </div>
           <Input
             type="datetime-local"
             value={matchTime}
