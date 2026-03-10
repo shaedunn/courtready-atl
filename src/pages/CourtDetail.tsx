@@ -648,40 +648,10 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         </button>
 
         {showDetails && (
-          <div className="bg-secondary/50 rounded-lg p-3 space-y-1.5 text-xs text-muted-foreground">
-            <p className="text-xs text-foreground/80 leading-relaxed mb-2">
-              CourtReady's Dry-Clock™ model combines hyperlocal weather data, court drainage profiles, and community reports to estimate when your court will be playable.
+          <div className="bg-secondary/50 rounded-lg p-3 text-xs text-muted-foreground">
+            <p className="leading-relaxed">
+              CourtReady's Dry-Clock™ model combines hyperlocal weather data, court drainage profiles, and community reports to estimate when your court will be playable. Forecasts improve as community members submit condition reports from the court.
             </p>
-            <div className="flex justify-between">
-              <span>Rainfall</span>
-              <span className="font-medium text-foreground">{dryClockResult.inputs.rainfallInches.toFixed(2)}″</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Drainage rating</span>
-              <span className="font-medium text-foreground">{dryClockResult.inputs.drainageRating}/5</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Humidity</span>
-              <span className="font-medium text-foreground">{dryClockResult.inputs.humidity}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Wind speed</span>
-              <span className="font-medium text-foreground">{dryClockResult.inputs.windSpeed} mph</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Sun exposure</span>
-              <span className="font-medium text-foreground">{dryClockResult.inputs.sunExposure}/5</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Conditions</span>
-              <span className="font-medium text-foreground capitalize">{dryClockResult.inputs.description || "—"}</span>
-            </div>
-            {dryClockResult.estimatedMinutes > 0 && (
-              <div className="flex justify-between pt-1 border-t border-border">
-                <span>Estimated dry time</span>
-                <span className="font-medium text-foreground">{formatDryTime(dryClockResult.estimatedMinutes)}</span>
-              </div>
-            )}
           </div>
         )}
       </div>
