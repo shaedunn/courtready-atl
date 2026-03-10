@@ -142,7 +142,7 @@ export default function CaptainDashboard() {
   };
 
   const createMatch = async () => {
-    if (!activeCourt || !homeTeam || !awayTeam || !matchTime) {
+    if (!activeCourt || !homeTeam || !awayTeam) {
       toast({ title: "Fill in all match fields", variant: "destructive" });
       return;
     }
