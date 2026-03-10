@@ -11,7 +11,6 @@ const DRAIN_LABELS: Record<number, string> = { 1: "Poor", 2: "Below Avg", 3: "Av
 
 export default function SubCourtEditor({ courtId, courtCount }: { courtId: string; courtCount: number }) {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(false);
   const [editingCourt, setEditingCourt] = useState<SubCourt | null>(null);
   const [sunVal, setSunVal] = useState(3);
   const [drainVal, setDrainVal] = useState(3);
