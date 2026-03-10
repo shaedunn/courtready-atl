@@ -1052,9 +1052,6 @@ export default function CourtDetail() {
           </div>
         )}
 
-        <div data-tour="hazard-button">
-          <CaptainsLog court={court} />
-        </div>
       </main>
 
       {/* DNA Editing Sheet */}
