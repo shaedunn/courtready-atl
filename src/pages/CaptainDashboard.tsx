@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { queryClient } from "@/App";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Search } from "lucide-react";
 
 const PINNED_KEY = "courtready-pinned";
 function getPinnedIds(): string[] {
@@ -37,12 +38,11 @@ function generateSlug(): string {
   return Math.random().toString(36).substring(2, 10);
 }
 
-// Hardcoded: captain sees all facilities until user profiles are built
-const CAPTAIN_USER_ID = "placeholder-all-access";
-
 export default function CaptainDashboard() {
+  const [searchParams] = useSearchParams();
+  const preselectedCourt = searchParams.get("court") || "";
   const pinnedIds = useMemo(() => getPinnedIds(), []);
-  const [selectedCourt, setSelectedCourt] = useState<string>("");
+  const [selectedCourt, setSelectedCourt] = useState<string>(preselectedCourt);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [publishedStatus, setPublishedStatus] = useState<string | null>(null);
   const [effortTags, setEffortTags] = useState<string[]>([]);
@@ -54,10 +54,11 @@ export default function CaptainDashboard() {
   const [awayTeam, setAwayTeam] = useState("");
   const [matchTime, setMatchTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [facilitySearch, setFacilitySearch] = useState("");
 
-  // Captain sees all facilities (hardcoded for now)
   const { data: courts } = useQuery({
-    queryKey: ["captain-courts", CAPTAIN_USER_ID],
+    queryKey: ["captain-courts"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("courts")
@@ -68,12 +69,19 @@ export default function CaptainDashboard() {
     },
   });
 
-  // Auto-select: first pinned court, then first court overall
-  const activeCourt = selectedCourt || (courts && pinnedIds.length > 0 ? courts.find(c => pinnedIds.includes(c.id))?.id : undefined) || courts?.[0]?.id || "";
-
-  // Split courts into pinned and unpinned
+  // Pinned courts only
   const pinnedCourts = useMemo(() => courts?.filter(c => pinnedIds.includes(c.id)) ?? [], [courts, pinnedIds]);
-  const unpinnedCourts = useMemo(() => courts?.filter(c => !pinnedIds.includes(c.id)) ?? [], [courts, pinnedIds]);
+
+  // Search results (non-pinned)
+  const searchResults = useMemo(() => {
+    if (!facilitySearch.trim() || !courts) return [];
+    return courts
+      .filter(c => !pinnedIds.includes(c.id))
+      .filter(c => c.name.toLowerCase().includes(facilitySearch.toLowerCase()));
+  }, [courts, pinnedIds, facilitySearch]);
+
+  // Auto-select: preselected > first pinned > empty
+  const activeCourt = selectedCourt || pinnedCourts[0]?.id || "";
 
   const toggleEffort = (tag: string) => {
     setEffortTags((prev) =>
@@ -145,46 +153,81 @@ export default function CaptainDashboard() {
     }
   };
 
+  const hasPinned = pinnedCourts.length > 0;
+
   return (
     <div className="min-h-screen bg-background p-4 max-w-lg mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-foreground font-heading">Captain's Trigger</h1>
 
-      {/* Facility (auto-assigned, tap to switch) */}
+      {/* Facility selector */}
       <div>
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-          Your Facilities
+          Your Facility
         </label>
-        <div className="flex flex-wrap gap-2">
-          {pinnedCourts.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => { setSelectedCourt(c.id); setPublishedStatus(null); setSelectedStatus(null); }}
-              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
-                activeCourt === c.id
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted text-muted-foreground border-border"
-              }`}
-            >
-              📌 {c.name}
-            </button>
-          ))}
-          {pinnedCourts.length > 0 && unpinnedCourts.length > 0 && (
-            <div className="w-full border-t border-border my-1" />
-          )}
-          {unpinnedCourts.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => { setSelectedCourt(c.id); setPublishedStatus(null); setSelectedStatus(null); }}
-              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
-                activeCourt === c.id
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted text-muted-foreground border-border"
-              }`}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
+
+        {/* Pinned courts as pills */}
+        {hasPinned && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {pinnedCourts.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => { setSelectedCourt(c.id); setPublishedStatus(null); setSelectedStatus(null); }}
+                className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
+                  activeCourt === c.id
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted text-muted-foreground border-border"
+                }`}
+              >
+                📌 {c.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Search toggle / field */}
+        {hasPinned && !showSearch ? (
+          <button
+            onClick={() => setShowSearch(true)}
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors min-h-[44px] py-2"
+          >
+            Different facility? Search →
+          </button>
+        ) : (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+            <input
+              type="text"
+              placeholder={hasPinned ? "Search for a facility..." : "Search for your facility..."}
+              value={facilitySearch}
+              onChange={(e) => setFacilitySearch(e.target.value)}
+              className="w-full bg-secondary text-foreground placeholder:text-muted-foreground/40 rounded-lg pl-10 pr-4 py-2.5 text-sm border border-border focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all"
+              autoFocus={showSearch}
+            />
+            {searchResults.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {searchResults.slice(0, 8).map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedCourt(c.id);
+                      setPublishedStatus(null);
+                      setSelectedStatus(null);
+                      setFacilitySearch("");
+                      if (hasPinned) setShowSearch(false);
+                    }}
+                    className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium border transition-colors ${
+                      activeCourt === c.id
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-border"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Captain Name */}
@@ -197,7 +240,6 @@ export default function CaptainDashboard() {
           onChange={(e) => {
             setCaptainName(e.target.value);
             localStorage.setItem("courtready-display-name", e.target.value);
-            // Also update home team if it matches old name
             setHomeTeam(e.target.value);
           }}
           placeholder="Captain name"

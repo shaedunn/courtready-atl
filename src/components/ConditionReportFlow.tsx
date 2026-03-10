@@ -23,12 +23,12 @@ const EFFORT_TAGS: EffortTag[] = ["Squeegees out", "Blowers active", "Debris on 
 const CONDITION_DEFAULTS: Record<Condition, { rainfall: number; dryMinutes: number; sky: string }> = {
   dry: { rainfall: 0, dryMinutes: 0, sky: "clear" },
   damp: { rainfall: 0, dryMinutes: 30, sky: "cloudy" },
-  wet: { rainfall: 0.24, dryMinutes: 90, sky: "rain" },       // 6mm
-  active_rain: { rainfall: 0.47, dryMinutes: 180, sky: "rain" }, // 12mm
+  wet: { rainfall: 0.24, dryMinutes: 90, sky: "rain" },
+  active_rain: { rainfall: 0.47, dryMinutes: 180, sky: "rain" },
 };
 
 const COOLDOWN_KEY = "courtready-anon-report";
-const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+const COOLDOWN_MS = 10 * 60 * 1000;
 
 function getCooldownEnd(courtId: string): number {
   try {
@@ -47,7 +47,13 @@ function setCooldownEnd(courtId: string) {
   } catch { /* ignore */ }
 }
 
-export default function ConditionReportFlow({ courtId }: { courtId: string }) {
+interface ConditionReportFlowProps {
+  courtId: string;
+  /** If true, render as outlined secondary button instead of filled primary pill */
+  variant?: "primary" | "secondary";
+}
+
+export default function ConditionReportFlow({ courtId, variant = "primary" }: ConditionReportFlowProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedCondition, setSelectedCondition] = useState<Condition | null>(null);
   const [selectedTags, setSelectedTags] = useState<Set<EffortTag>>(new Set());
@@ -55,7 +61,6 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
   const [onCooldown, setOnCooldown] = useState(false);
   const queryClient = useQueryClient();
 
-  // Check cooldown on mount and periodically
   useEffect(() => {
     const check = () => setOnCooldown(Date.now() < getCooldownEnd(courtId));
     check();
@@ -87,7 +92,6 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
     },
   });
 
-  // Auto-submit timer for followup phase
   useEffect(() => {
     if (phase !== "followup" || !selectedCondition) return;
     const timer = setTimeout(() => {
@@ -108,7 +112,6 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
       if (next.has(tag)) next.delete(tag); else next.add(tag);
       return next;
     });
-    // Submit immediately on any tag tap
     if (selectedCondition) {
       const updatedTags = new Set(selectedTags);
       if (updatedTags.has(tag)) updatedTags.delete(tag); else updatedTags.add(tag);
@@ -122,7 +125,6 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
     setPhase("pick");
   }, []);
 
-  // Cooldown shows confirmation
   if (onCooldown) {
     return (
       <p className="text-center text-sm text-court-green font-medium py-2">
@@ -131,7 +133,6 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
     );
   }
 
-  // Followup phase - inline tags
   if (phase === "followup" && selectedCondition) {
     return (
       <div className="space-y-2">
@@ -161,7 +162,6 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
     );
   }
 
-  // Done phase (briefly shown before cooldown kicks in)
   if (phase === "done") {
     return (
       <p className="text-center text-sm text-court-green font-medium py-2">
@@ -170,11 +170,16 @@ export default function ConditionReportFlow({ courtId }: { courtId: string }) {
     );
   }
 
+  const buttonClass = variant === "secondary"
+    ? "w-full py-3 rounded-lg text-sm font-bold tracking-wide active:scale-[0.98] transition-all flex items-center justify-center gap-2 border-2 bg-transparent"
+    : "w-full py-3 rounded-full text-sm font-bold tracking-wide active:scale-[0.98] transition-all flex items-center justify-center gap-2 bg-primary text-primary-foreground";
+
   return (
     <>
       <button
         onClick={() => { reset(); setDrawerOpen(true); }}
-        className="w-full py-3 rounded-full text-sm font-bold tracking-wide active:scale-[0.98] transition-all flex items-center justify-center gap-2 bg-primary text-primary-foreground"
+        className={buttonClass}
+        style={variant === "secondary" ? { borderColor: "#C9F000", color: "hsl(var(--foreground))" } : undefined}
       >
         📍 I'm here — report conditions
       </button>
