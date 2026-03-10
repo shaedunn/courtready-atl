@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, CloudRain, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown } from "lucide-react";
+import { ArrowLeft, Clock, Send, Sparkles, MapPin, CheckCircle2, Droplets as DropletsIcon, AlertTriangle, Info, Scissors, Settings, ShieldAlert, ChevronDown } from "lucide-react";
 import ConditionReportFlow from "@/components/ConditionReportFlow";
 import { supabase, fetchWeather, type SovereignCourt, type Observation, getDisplayName, setDisplayName } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,10 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import ReportForm from "@/components/court/ReportForm";
+
 import SubCourtEditor from "@/components/court/SubCourtEditor";
 import GuidedTour, { shouldShowTour } from "@/components/GuidedTour";
-import CelebrationOverlay, { shouldCelebrate, markCelebrated } from "@/components/CelebrationOverlay";
+import CelebrationOverlay from "@/components/CelebrationOverlay";
 import type { SubCourtRow } from "@/types/supabase";
 
 type Report = Tables<"reports">;
@@ -196,12 +196,13 @@ const CONDITION_DISPLAY: Record<NowCondition, { label: string; color: string; do
 };
 
 /* ─── Status Card (Condition + Outlook) ─── */
-function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latestObservation }: {
+function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latestObservation, weatherData }: {
   dryClockNow: DryClockResult | null;
   dryClockFuture: { offset: number; result: DryClockResult }[];
   latestReport: Report | null;
   courtId: string;
   latestObservation: Observation | null;
+  weatherData: { temp?: number | null; humidity?: number | null; wind_speed?: number | null } | null;
 }) {
   const [outlookExpanded, setOutlookExpanded] = useState(false);
 
@@ -249,6 +250,30 @@ function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latest
         <span className={`w-3 h-3 rounded-full ${display.dotColor} inline-block`} />
         <p className={`text-lg font-bold font-heading ${display.color}`}>{display.label}</p>
       </div>
+
+      {/* Inline weather strip */}
+      {weatherData && (
+        <p className="text-xs text-muted-foreground">
+          {weatherData.temp != null && <>{Math.round(weatherData.temp)}°F · </>}
+          {weatherData.humidity != null && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={weatherData.humidity > 90 ? "text-court-amber font-medium" : ""}>
+                    {weatherData.humidity}% humidity
+                  </span>
+                </TooltipTrigger>
+                {weatherData.humidity > 90 && (
+                  <TooltipContent side="top" className="max-w-[200px] text-xs">
+                    High humidity slows drying significantly and may create slippery surfaces.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {weatherData.wind_speed != null && <> · {Math.round(weatherData.wind_speed)} mph wind</>}
+        </p>
+      )}
 
       {/* Outlook line */}
       {outlookText && (
@@ -803,7 +828,6 @@ export default function CourtDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
   // Realtime subscriptions for reports & court_status
@@ -1023,6 +1047,7 @@ export default function CourtDetail() {
             latestReport={latestReport}
             courtId={court.id}
             latestObservation={effectiveObservation}
+            weatherData={weatherData}
           />
         </div>
 
@@ -1055,28 +1080,6 @@ export default function CourtDetail() {
           </div>
         )}
 
-        {!showForm && (
-          <button onClick={() => setShowForm(true)}
-            className="w-full font-semibold py-3 rounded-lg text-sm tracking-wide hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-            style={{ backgroundColor: "#002366", color: "#DFFF00" }}
-          >
-            <CloudRain className="w-4 h-4" />
-            Captain's Report
-          </button>
-        )}
-
-        {showForm && (
-          <ReportForm
-            court={court}
-            onSubmitted={() => {
-              setShowForm(false);
-              if (shouldCelebrate()) {
-                markCelebrated();
-                setShowCelebration(true);
-              }
-            }}
-          />
-        )}
 
         <div data-tour="sub-court-editor">
           <SubCourtEditor courtId={court.id} courtCount={court.court_count} />
