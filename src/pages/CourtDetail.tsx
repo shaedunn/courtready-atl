@@ -438,7 +438,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         // Step 1: Now tab — use actual current conditions + community reports
         const nowResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage, court.sun_exposure,
+          court.drainage_rating, court.sun_exposure_rating,
           recentReportRainfall,
         );
         const courtState: CourtState = (nowResult.isActiveRain || nowResult.estimatedMinutes > 0 || rain > 0.05) ? "WET" : "DRY";
@@ -457,7 +457,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         const accRain = inheritedRain + rain;
         const baseResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
@@ -477,7 +477,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (inheritedState === "DRY") {
         const baseResult = computeDryClock(
           0, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
@@ -495,7 +495,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       // Calculate recovery time from accumulated rainfall using Dry-Clock formula
       const recoveryResult = computeDryClock(
         inheritedRain, humidity, wind, desc,
-        court.drainage, court.sun_exposure, null,
+        court.drainage_rating, court.sun_exposure_rating, null,
       );
 
       // How many hours since rain could have stopped? Find the last rainy tab before this one
@@ -521,7 +521,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (remainingMinutes <= 0) {
         const baseResult = computeDryClock(
           0, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
@@ -564,7 +564,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
     }
 
     return results;
-  }, [hourly, weatherData, court.drainage, court.sun_exposure, recentReportRainfall]);
+  }, [hourly, weatherData, court.drainage_rating, court.sun_exposure_rating, recentReportRainfall]);
 
   const dryClockResult = forecastChain[parseInt(offset)] ?? forecastChain[0];
 
@@ -943,8 +943,8 @@ export default function CourtDetail() {
 
     // Build a stateful chain mirroring PlayabilityForecast logic
     type CourtState = "DRY" | "WET";
-    const drain = court.drainage ?? 3;
-    const sun = court.sun_exposure ?? 3;
+    const drain = court.drainage_rating ?? 3;
+    const sun = court.sun_exposure_rating ?? 3;
     const nowRain = weatherData.rain_1h ?? 0;
     const nowResult = computeDryClock(
       nowRain, weatherData.humidity ?? 50, weatherData.wind_speed ?? 5,
