@@ -309,13 +309,19 @@ function StatusCard({ dryClockNow, dryClockFuture, latestReport, courtId, latest
 }
 
 /* ─── Playability Forecast ─── */
-type HourlyEntry = { dt: number; temp: number; humidity: number; wind_speed: number; pop: number; rain_1h: number; description?: string };
+type HourlyEntry = { dt: number; temp: number; humidity: number; wind_speed: number; wind_deg?: number | null; pop: number; rain_1h: number; description?: string };
 
 type WeatherWithHourly = {
-  temp: number; humidity: number; wind_speed: number; rain_1h?: number;
+  temp: number; humidity: number; wind_speed: number; wind_deg?: number | null; rain_1h?: number;
   description?: string; icon?: string;
   hourly?: HourlyEntry[];
 };
+
+/* ─── Cardinal direction helper ─── */
+function degToCardinal(deg: number): string {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(deg / 45) % 8];
+}
 
 function calculatePlayability(
   hourly: HourlyEntry[],
