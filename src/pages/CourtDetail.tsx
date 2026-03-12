@@ -556,7 +556,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (remainingMinutes <= 0) {
         const baseResult = computeDryClock(
           0, humidity, wind, desc,
-          court.drainage_rating, court.sun_exposure_rating, null,
+          court.drainage, court.sun_exposure, null,
         );
         results.push({
           ...baseResult,
