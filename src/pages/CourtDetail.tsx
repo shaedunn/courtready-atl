@@ -432,18 +432,35 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         desc = h?.description ?? weatherData.description ?? "";
       }
 
-      const isActiveRainThisHour = (desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("thunderstorm")) && rain > 0.1;
+      // For Now tab: use actual rain intensity. For future tabs: use precipitation probability.
+      const pop = (i > 0) ? ((hourly[i] as any)?.pop ?? 0) : 0;
 
       if (i === 0) {
         // Step 1: Now tab — use actual current conditions + community reports
         const nowResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage_rating, court.sun_exposure_rating,
+          court.drainage, court.sun_exposure,
           recentReportRainfall,
         );
-        const courtState: CourtState = (nowResult.isActiveRain || nowResult.estimatedMinutes > 0 || rain > 0.05) ? "WET" : "DRY";
+        // Active rain only if actual intensity > 0.5mm/hr
+        const isActiveNow = (desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("thunderstorm")) && rain > 0.5;
+        const courtState: CourtState = (isActiveNow || nowResult.estimatedMinutes > 0 || rain > 0.05) ? "WET" : "DRY";
         const accRain = courtState === "WET" ? Math.max(rain, recentReportRainfall ?? 0) : 0;
-        results.push({ ...nowResult, courtState, accumulatedRain: accRain });
+        if (isActiveNow) {
+          results.push({
+            ...nowResult,
+            isActiveRain: true,
+            outputString: "Active rain — check back as conditions develop.",
+            estimatedMinutes: -1,
+            estimatedPlayableTime: null,
+            effortLevel: "",
+            action: "",
+            courtState: "WET",
+            accumulatedRain: accRain,
+          });
+        } else {
+          results.push({ ...nowResult, courtState, accumulatedRain: accRain });
+        }
         continue;
       }
 
@@ -452,23 +469,44 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       const inheritedState = prev.courtState;
       const inheritedRain = prev.accumulatedRain;
 
-      // Rule A: Active rain this hour
-      if (isActiveRainThisHour || rain > 0.1) {
+      // Future tabs: use precipitation probability (pop) instead of rain intensity
+      // Rule A-pop: pop > 50% → rain likely, accumulate forecast rain, stay WET
+      if (pop > 0.50) {
         const accRain = inheritedRain + rain;
         const baseResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage_rating, court.sun_exposure_rating, null,
+          court.drainage, court.sun_exposure, null,
         );
         results.push({
           ...baseResult,
-          isActiveRain: true,
-          outputString: "Active rain — check back as conditions develop.",
+          isActiveRain: false,
+          outputString: "Rain likely — forecast updating.",
           estimatedMinutes: -1,
           estimatedPlayableTime: null,
           effortLevel: "",
           action: "",
           courtState: "WET",
           accumulatedRain: accRain,
+        });
+        continue;
+      }
+
+      // Rule A-clearing: pop 20-50% and inherited WET → clearing conditions
+      if (pop >= 0.20 && inheritedState === "WET") {
+        const baseResult = computeDryClock(
+          inheritedRain, humidity, wind, desc,
+          court.drainage, court.sun_exposure, null,
+        );
+        results.push({
+          ...baseResult,
+          isActiveRain: false,
+          outputString: "Clearing conditions — drying in progress.",
+          estimatedMinutes: baseResult.estimatedMinutes,
+          estimatedPlayableTime: baseResult.estimatedPlayableTime,
+          effortLevel: baseResult.effortLevel,
+          action: baseResult.action,
+          courtState: "WET",
+          accumulatedRain: inheritedRain,
         });
         continue;
       }
