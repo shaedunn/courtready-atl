@@ -1,54 +1,63 @@
 
-Goal: remove any chance of stale weather responses, expose the exact payload shape, and persist every weather call to a backend cache table.
 
-What I verified in the current code/runtime:
-- The app is already calling the live backend function via `supabase.functions.invoke("get-weather")` (no local `/functions/get-weather` route found).
-- Current function response shape (live call):
-  `{"description":"scattered clouds","humidity":88,"icon":"03n","rain_1h":0,"temp":59.83,"wind_speed":0}`
-- There is no `weather_cache` table in the database right now.
-- `get-weather` currently does not write to the database at all (no upsert logic exists).
+## Plan: Beacon + Captain Trigger Page Upgrades (with Pilot Captain Attribution)
 
-Implementation plan:
+### Database Migration
 
-1) Add a `weather_cache` table (schema migration)
-- Create `public.weather_cache` with fields like:
-  - `id` uuid PK
-  - `lat` double precision not null
-  - `lon` double precision not null
-  - `cache_key` text not null unique (derived from normalized lat/lon)
-  - `temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`
-  - `raw_payload` jsonb not null
-  - `last_requested_at` timestamptz not null default now()
-  - `updated_at` timestamptz not null default now()
-- Enable RLS and keep table write-protected from clients (no public insert/update policies), so only backend function writes.
+```sql
+-- 1. council_members table for pilot captain roster
+CREATE TABLE public.council_members (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  display_name text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.council_members ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Council members readable by everyone"
+  ON public.council_members FOR SELECT TO public USING (true);
 
-2) Update `get-weather` edge function to always write on every request
-- Parse cache-bust token from query `t` and/or body `t`.
-- Call OpenWeather with an added nonce param (e.g. `&_=${t || Date.now()}`) and `Cache-Control: no-store` request header.
-- Build normalized response object (`temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`).
-- Initialize backend client inside function with server credentials and perform `upsert` into `weather_cache` using `cache_key` conflict target.
-- Always update `last_requested_at` + `updated_at` so each function call leaves an auditable write.
+-- 2. New columns on court_status
+ALTER TABLE public.court_status
+  ADD COLUMN IF NOT EXISTS help_needed text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS report_to text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS captain_name text DEFAULT NULL;
 
-3) Update frontend invocations to include timestamp cache-bust
-- `src/components/court/ReportForm.tsx`:
-  - change to `supabase.functions.invoke(\`get-weather?t=${Date.now()}\`, { body: { lat, lon, t: Date.now() } })`
-- `src/components/SplashScreen.tsx`:
-  - same timestamped invoke pattern for prefetch call
-- Keep existing UX behavior (weather badge + error states).
+-- 3. Make match_time nullable
+ALTER TABLE public.matches
+  ALTER COLUMN match_time DROP NOT NULL;
+```
 
-4) Expose exact JSON received for debugging
-- Add temporary debug logging in `ReportForm` (or guarded dev-only panel) to print/display the exact JSON returned from the function before any transformation.
-- Add function-side `console.log` for request coordinates and normalized payload to make logs useful.
+`council_members` is read-only from the client (no insert/update/delete policies). Seed captain names via the data insert tool after migration. `captain_name` on `court_status` stores the selected display name directly — no join needed on the Beacon page.
 
-5) Validate end-to-end after implementation
-- Trigger weather fetch from `/court/leslie-beach-club`.
-- Confirm network requests include `?t=<timestamp>`.
-- Confirm function response JSON matches displayed/debugged payload.
-- Run read query:
-  - `select cache_key, temp, humidity, wind_speed, last_requested_at, updated_at from public.weather_cache order by updated_at desc limit 10;`
-- Re-fetch immediately and verify `updated_at` changes on each call.
+---
 
-Technical details:
-- No changes to generated Supabase client file (`src/integrations/supabase/client.ts`), per platform constraints.
-- This approach keeps weather reads public while restricting cache-table writes to backend logic only.
-- If you want per-court cache rows instead of per-lat/lon rows, I can switch `cache_key` to `court_id` in the same implementation pass.
+### Captain Trigger Page (`src/pages/CaptainDashboard.tsx`)
+
+**Captain name selector** — fetch `council_members` via react-query. Replace the current `captainName` localStorage default with a dropdown (`Select` component) populated from the query. Store selection in local state + localStorage for persistence. Include the selected `captain_name` in the `court_status` insert payload alongside existing `created_by`.
+
+**Help Needed section** — new section after effort tags, visually separated:
+- Three mutually exclusive radio-style chips: "We've got it — no help needed" (`none`), "Extra hands welcome — bring towels" (`towels`), "All hands needed — bring everything" (`all`).
+- Read-only Dry-Clock context line beneath (placeholder text for now).
+- Optional `Report to:` single-line input with placeholder "e.g. Court 3 entrance · Ask for Sarah".
+- Both `help_needed` and `report_to` included in `court_status` insert.
+
+**Match time optional** — change match time input label to "Match time — optional" with sub-label "(Helps opponents know when to leave)". Remove required validation. Insert `null` if empty.
+
+---
+
+### Beacon Page (`src/pages/BeaconPage.tsx`)
+
+**Audience separation** — existing content (hero banner, Home Team Prep card, timeline) remains as the opponent-facing section. After timeline, add a full-width `bg-muted/50` section labeled "Your team needs you" displaying `help_needed` mapped to human-readable text and `report_to` if present.
+
+**Captain attribution** — below the hero banner status text, add: `Updated {h:mma} · by Captain {captain_name}`. Derive time from `latestStatus.created_at`, name from `latestStatus.captain_name`. Falls back to just the time if no captain name. Styled `text-xs text-white/60`.
+
+**Conditional match time** — only render match time line if `match.match_time` is non-null.
+
+**Footer CTA** — at page bottom: "Running your own matches?" / "Get this for your courts →" linking to `/captain`. Styled as `text-sm text-muted-foreground`.
+
+---
+
+### Files Changed
+1. **Database migration** — create `council_members`, add 3 columns to `court_status`, make `match_time` nullable
+2. **`src/pages/CaptainDashboard.tsx`** — captain name dropdown from `council_members`, Help Needed section, optional match time, report-to field
+3. **`src/pages/BeaconPage.tsx`** — audience separation, captain attribution from `captain_name`, teammate section, footer CTA
+
