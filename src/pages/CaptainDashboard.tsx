@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { queryClient } from "@/App";
 import { CheckCircle2, Search } from "lucide-react";
@@ -20,6 +27,12 @@ const EFFORT_OPTIONS = [
   "Blowers Active",
   "Debris Removal",
   "Waiting on Sun",
+] as const;
+
+const HELP_OPTIONS = [
+  { value: "none", label: "We've got it — no help needed" },
+  { value: "towels", label: "Extra hands welcome — bring towels" },
+  { value: "all", label: "All hands needed — bring everything" },
 ] as const;
 
 const STATUS_BUTTONS: { value: string; label: string; color: string }[] = [
@@ -48,10 +61,13 @@ export default function CaptainDashboard() {
   const [effortTags, setEffortTags] = useState<string[]>([]);
   const [captainNote, setCaptainNote] = useState("");
   const [captainName, setCaptainName] = useState(
-    () => localStorage.getItem("courtready-display-name") || "Captain"
+    () => localStorage.getItem("courtready-captain-name") || ""
   );
+  const [helpNeeded, setHelpNeeded] = useState<string | null>(null);
+  const [reportTo, setReportTo] = useState("");
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
+  const [matchTime, setMatchTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [facilitySearch, setFacilitySearch] = useState("");
@@ -63,6 +79,18 @@ export default function CaptainDashboard() {
         .from("courts")
         .select("id, name")
         .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: councilMembers } = useQuery({
+    queryKey: ["council-members"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("council_members")
+        .select("id, display_name")
+        .order("display_name");
       if (error) throw error;
       return data;
     },
@@ -126,7 +154,10 @@ export default function CaptainDashboard() {
         action_label: ACTION_LABELS[selectedStatus],
         captain_note: captainNote || null,
         effort_tags: effortTags,
-        created_by: captainName,
+        created_by: captainName || "Captain",
+        captain_name: captainName || null,
+        help_needed: helpNeeded || null,
+        report_to: reportTo || null,
       });
       if (error) throw error;
       toast({ title: `Status: ${ACTION_LABELS[selectedStatus]}` });
@@ -143,7 +174,7 @@ export default function CaptainDashboard() {
 
   const createMatch = async () => {
     if (!activeCourt || !homeTeam || !awayTeam) {
-      toast({ title: "Fill in all match fields", variant: "destructive" });
+      toast({ title: "Fill in home and away teams", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -153,7 +184,7 @@ export default function CaptainDashboard() {
         court_id: activeCourt,
         home_team: homeTeam,
         away_team: awayTeam,
-        match_time: new Date().toISOString(),
+        match_time: matchTime ? new Date(matchTime).toISOString() : new Date().toISOString(),
         share_slug: slug,
       });
       if (error) throw error;
@@ -161,6 +192,7 @@ export default function CaptainDashboard() {
       await navigator.clipboard.writeText(url);
       toast({ title: "Link copied!", description: url });
       setAwayTeam("");
+      setMatchTime("");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -259,19 +291,40 @@ export default function CaptainDashboard() {
         )}
       </div>
 
-      {/* Captain Name */}
+      {/* Captain Name — dropdown from council_members */}
       <div>
         <label className="text-sm font-medium text-muted-foreground mb-1 block">
           Your Name
         </label>
-        <Input
-          value={captainName}
-          onChange={(e) => {
-            setCaptainName(e.target.value);
-            localStorage.setItem("courtready-display-name", e.target.value);
-          }}
-          placeholder="Captain name"
-        />
+        {councilMembers && councilMembers.length > 0 ? (
+          <Select
+            value={captainName}
+            onValueChange={(val) => {
+              setCaptainName(val);
+              localStorage.setItem("courtready-captain-name", val);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select your name" />
+            </SelectTrigger>
+            <SelectContent>
+              {councilMembers.map((m) => (
+                <SelectItem key={m.id} value={m.display_name}>
+                  {m.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            value={captainName}
+            onChange={(e) => {
+              setCaptainName(e.target.value);
+              localStorage.setItem("courtready-captain-name", e.target.value);
+            }}
+            placeholder="Captain name"
+          />
+        )}
       </div>
 
       <Separator />
@@ -382,6 +435,45 @@ export default function CaptainDashboard() {
 
       <Separator />
 
+      {/* Help Needed Section */}
+      <div className="space-y-3">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+          Help Needed
+        </label>
+        <div className="flex flex-col gap-2">
+          {HELP_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setHelpNeeded(prev => prev === opt.value ? null : opt.value)}
+              className={`w-full px-4 py-3 min-h-[44px] rounded-lg text-sm font-medium border text-left transition-colors ${
+                helpNeeded === opt.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs text-muted-foreground italic">
+          Dry-Clock estimate will appear here once linked.
+        </p>
+
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">
+            Report to:
+          </label>
+          <Input
+            value={reportTo}
+            onChange={(e) => setReportTo(e.target.value)}
+            placeholder="e.g. Court 3 entrance · Ask for Sarah"
+          />
+        </div>
+      </div>
+
+      <Separator />
+
       {/* Create Match + Share Link */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground font-heading">
@@ -406,6 +498,17 @@ export default function CaptainDashboard() {
               placeholder="Away team"
               value={awayTeam}
               onChange={(e) => setAwayTeam(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-0.5 block">
+              Match time — optional
+            </label>
+            <p className="text-xs text-muted-foreground mb-1">(Helps opponents know when to leave)</p>
+            <Input
+              type="datetime-local"
+              value={matchTime}
+              onChange={(e) => setMatchTime(e.target.value)}
             />
           </div>
           <Button

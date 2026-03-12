@@ -1,13 +1,26 @@
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 
 const STATUS_MAP: Record<string, { bg: string; label: string }> = {
   green: { bg: "#22c55e", label: "MATCH IS A GO — On-Time Start" },
   yellow: { bg: "#eab308", label: "DELAYED — Captain's Call Pending" },
   red: { bg: "#ef4444", label: "MATCH POSTPONED" },
 };
+
+const HELP_LABELS: Record<string, string> = {
+  none: "We've got it — no help needed",
+  towels: "Extra hands welcome — bring towels",
+  all: "All hands needed — bring everything",
+};
+
+function formatCaptainAttribution(name: string | null): string {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return `Captain ${parts[0]}`;
+  return `Captain ${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
 
 export default function BeaconPage() {
   const { share_slug } = useParams<{ share_slug: string }>();
@@ -79,8 +92,21 @@ export default function BeaconPage() {
   const statusKey = (latestStatus?.status as string) || "yellow";
   const cfg = STATUS_MAP[statusKey] || STATUS_MAP.yellow;
 
+  const captainAttr = latestStatus
+    ? `Updated ${format(new Date(latestStatus.created_at), "h:mma").toLowerCase()}${
+        latestStatus.captain_name
+          ? ` · by ${formatCaptainAttribution(latestStatus.captain_name)}`
+          : ""
+      }`
+    : null;
+
+  const helpNeeded = latestStatus?.help_needed as string | null;
+  const reportToValue = latestStatus?.report_to as string | null;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* ── Opponent-facing section ── */}
+
       {/* Hero Banner */}
       <div
         className="w-full py-16 px-4 flex flex-col items-center justify-center text-center"
@@ -92,9 +118,14 @@ export default function BeaconPage() {
         <p className="mt-3 text-lg text-white/80 font-medium">
           {court?.name} — {match.home_team} vs {match.away_team}
         </p>
-        <p className="mt-1 text-sm text-white/60">
-          {new Date(match.match_time).toLocaleString()}
-        </p>
+        {match.match_time && (
+          <p className="mt-1 text-sm text-white/60">
+            {new Date(match.match_time).toLocaleString()}
+          </p>
+        )}
+        {captainAttr && (
+          <p className="mt-2 text-xs text-white/60">{captainAttr}</p>
+        )}
       </div>
 
       {/* Home Team Prep Card */}
@@ -168,6 +199,27 @@ export default function BeaconPage() {
         )}
       </div>
 
+      {/* ── Teammate-facing section ── */}
+      {helpNeeded && (
+        <div className="w-full bg-muted/50 border-t border-border">
+          <div className="px-4 py-8 max-w-lg mx-auto w-full space-y-4">
+            <h2 className="text-lg font-bold text-foreground font-heading">
+              Your team needs you
+            </h2>
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              <p className="text-sm font-semibold text-card-foreground">
+                {HELP_LABELS[helpNeeded] || helpNeeded}
+              </p>
+              {reportToValue && (
+                <p className="text-sm text-muted-foreground">
+                  Report to: {reportToValue}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DNA Note */}
       {court?.dna_note && (
         <div className="px-4 pb-8 max-w-lg mx-auto w-full">
@@ -179,6 +231,17 @@ export default function BeaconPage() {
           </div>
         </div>
       )}
+
+      {/* Footer CTA */}
+      <div className="px-4 py-6 max-w-lg mx-auto w-full text-center border-t border-border">
+        <p className="text-sm text-muted-foreground">Running your own matches?</p>
+        <Link
+          to="/captain"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Get this for your courts →
+        </Link>
+      </div>
     </div>
   );
 }
