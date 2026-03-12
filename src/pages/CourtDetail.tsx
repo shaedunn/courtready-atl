@@ -530,7 +530,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       // Calculate recovery time from accumulated rainfall using Dry-Clock formula
       const recoveryResult = computeDryClock(
         inheritedRain, humidity, wind, desc,
-        court.drainage_rating, court.sun_exposure_rating, null,
+        court.drainage, court.sun_exposure, null,
       );
 
       // How many hours since rain could have stopped? Find the last rainy tab before this one
