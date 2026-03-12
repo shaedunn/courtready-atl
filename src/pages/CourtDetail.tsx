@@ -675,54 +675,19 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
 
   const showOutput = overrideOutput ?? dryClockResult.outputString;
 
-  // Reasoning line: [Rain status] · [Wind] · [Ready time]
+  // Reasoning line: three-mode — backward-facing / forward-facing / suppress rain
   const reasoningLine = useMemo(() => {
     const idx = parseInt(offset);
     const h = idx === 0 ? null : (hourly[idx] ?? null);
 
-    // Wind segment
+    // Wind segment (unchanged)
     const windSpeed = idx === 0 ? (weatherData.wind_speed ?? 0) : (h?.wind_speed ?? weatherData.wind_speed ?? 0);
     const windDeg = idx === 0 ? (weatherData as any).wind_deg : (h as any)?.wind_deg;
     const windStr = windDeg != null
       ? `${Math.round(windSpeed)} mph ${degToCardinal(windDeg)} wind`
       : `${Math.round(windSpeed)} mph wind`;
 
-    // Rain status segment
-    let rainStatus: string;
-    if (idx === 0) {
-      const currentRain = weatherData.rain_1h ?? 0;
-      const desc = (weatherData.description ?? "").toLowerCase();
-      const isActive = (desc.includes("rain") || desc.includes("thunderstorm")) && currentRain > 0.5;
-      if (isActive) {
-        rainStatus = "Active rain";
-      } else if (currentRain > 0.05) {
-        rainStatus = "Light rain";
-      } else {
-        rainStatus = "No rain expected";
-      }
-    } else {
-      const pop = (h as any)?.pop ?? 0;
-      if (pop > 0.50) {
-        rainStatus = "Rain likely";
-      } else if (pop >= 0.20) {
-        // Scan forward for first hour where pop < 0.20
-        let clearHourLabel: string | null = null;
-        for (let j = idx + 1; j < hourly.length; j++) {
-          if (((hourly[j] as any)?.pop ?? 0) < 0.20) {
-            const dt = hourly[j]?.dt;
-            if (dt) {
-              clearHourLabel = new Date(dt * 1000).toLocaleTimeString([], { hour: "numeric", hour12: true }).toLowerCase();
-            }
-            break;
-          }
-        }
-        rainStatus = clearHourLabel ? `Rain clearing by ${clearHourLabel}` : "Rain clearing";
-      } else {
-        rainStatus = "No rain expected";
-      }
-    }
-
-    // Ready time segment
+    // Ready time segment (unchanged)
     let readyStr: string;
     const result = dryClockResult;
     if (result.isActiveRain || result.outputString.includes("Rain likely")) {
@@ -735,7 +700,72 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       readyStr = `Estimated ready by ${time}${effort}`;
     }
 
-    return `${rainStatus} · ${windStr} · ${readyStr}`;
+    // Determine selected hour's rain state
+    const currentRain1h = idx === 0 ? (weatherData.rain_1h ?? 0) : ((h as any)?.rain_1h ?? 0);
+    const currentPop = idx === 0 ? 0 : ((h as any)?.pop ?? 0);
+    const selectedDt = idx === 0 ? (Date.now() / 1000) : ((h as any)?.dt ?? Date.now() / 1000);
+
+    // --- Backward-facing scan ---
+    let backwardMode = false;
+    let backwardSegment = "";
+    if (currentRain1h <= 0.5 && currentPop < 0.50) {
+      let peakRain = 0;
+      let lastRainDt = 0;
+      for (let j = 0; j < hourly.length; j++) {
+        const entry = hourly[j] as any;
+        if (!entry?.dt || entry.dt >= selectedDt) break;
+        const r1h = entry.rain_1h ?? 0;
+        if (r1h > 0.5) {
+          if (r1h > peakRain) peakRain = r1h;
+          lastRainDt = entry.dt;
+        }
+      }
+      if (lastRainDt > 0) {
+        backwardMode = true;
+        const descriptor = peakRain >= 1.0 ? "Heavy rainfall" : peakRain >= 0.5 ? "Moderate rainfall" : "Light rain";
+        const endedTime = new Date(lastRainDt * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
+        backwardSegment = `${descriptor} ended ${endedTime}`;
+      }
+    }
+
+    if (backwardMode) {
+      return `${backwardSegment} · ${windStr} · ${readyStr}`;
+    }
+
+    // --- Forward-facing mode ---
+    let rainStatus: string | null = null;
+    if (idx === 0) {
+      const desc = (weatherData.description ?? "").toLowerCase();
+      const isActive = (desc.includes("rain") || desc.includes("thunderstorm")) && (weatherData.rain_1h ?? 0) > 0.5;
+      if (isActive) {
+        rainStatus = "Active rain";
+      } else if ((weatherData.rain_1h ?? 0) > 0.05) {
+        rainStatus = "Light rain";
+      }
+    } else {
+      const pop = (h as any)?.pop ?? 0;
+      if (pop > 0.50) {
+        rainStatus = "Rain likely";
+      } else if (pop >= 0.20) {
+        let clearHourLabel: string | null = null;
+        for (let j = idx + 1; j < hourly.length; j++) {
+          if (((hourly[j] as any)?.pop ?? 0) < 0.20) {
+            const dt = hourly[j]?.dt;
+            if (dt) {
+              clearHourLabel = new Date(dt * 1000).toLocaleTimeString([], { hour: "numeric", hour12: true }).toLowerCase();
+            }
+            break;
+          }
+        }
+        rainStatus = clearHourLabel ? `Rain clearing by ${clearHourLabel}` : "Rain clearing";
+      }
+    }
+
+    // If rain segment exists, include it; otherwise suppress (fully dry)
+    if (rainStatus) {
+      return `${rainStatus} · ${windStr} · ${readyStr}`;
+    }
+    return `${windStr} · ${readyStr}`;
   }, [offset, hourly, weatherData, dryClockResult]);
 
   const contextLabel = hasRecentReport && reportAgeText
