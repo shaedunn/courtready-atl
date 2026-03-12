@@ -1,54 +1,46 @@
 
-Goal: remove any chance of stale weather responses, expose the exact payload shape, and persist every weather call to a backend cache table.
 
-What I verified in the current code/runtime:
-- The app is already calling the live backend function via `supabase.functions.invoke("get-weather")` (no local `/functions/get-weather` route found).
-- Current function response shape (live call):
-  `{"description":"scattered clouds","humidity":88,"icon":"03n","rain_1h":0,"temp":59.83,"wind_speed":0}`
-- There is no `weather_cache` table in the database right now.
-- `get-weather` currently does not write to the database at all (no upsert logic exists).
+## Plan: Fix Forecast Tab Logic — Build Errors + Precipitation Probability
 
-Implementation plan:
+### Problem
+Two issues:
+1. **Build errors**: The last diff changed `court.drainage` → `court.drainage_rating` and `court.sun_exposure` → `court.sun_exposure_rating`, but `SovereignCourt` type uses `drainage` and `sun_exposure`. Need to revert these 14 references.
+2. **Wrong active rain detection for future tabs**: Future hourly tabs treat `rain_1h > 0.1` as "active rain," but for forecasted hours this value represents predicted intensity, not confirmed precipitation. The `pop` (precipitation probability 0–1) field from the hourly forecast should drive the logic instead.
 
-1) Add a `weather_cache` table (schema migration)
-- Create `public.weather_cache` with fields like:
-  - `id` uuid PK
-  - `lat` double precision not null
-  - `lon` double precision not null
-  - `cache_key` text not null unique (derived from normalized lat/lon)
-  - `temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`
-  - `raw_payload` jsonb not null
-  - `last_requested_at` timestamptz not null default now()
-  - `updated_at` timestamptz not null default now()
-- Enable RLS and keep table write-protected from clients (no public insert/update policies), so only backend function writes.
+### Changes (single file: `src/pages/CourtDetail.tsx`)
 
-2) Update `get-weather` edge function to always write on every request
-- Parse cache-bust token from query `t` and/or body `t`.
-- Call OpenWeather with an added nonce param (e.g. `&_=${t || Date.now()}`) and `Cache-Control: no-store` request header.
-- Build normalized response object (`temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`).
-- Initialize backend client inside function with server credentials and perform `upsert` into `weather_cache` using `cache_key` conflict target.
-- Always update `last_requested_at` + `updated_at` so each function call leaves an auditable write.
+**Fix 1 — Revert property names** (lines 441, 460, 480, 498, 524, 567, 946, 947):
+- `court.drainage_rating` → `court.drainage`
+- `court.sun_exposure_rating` → `court.sun_exposure`
 
-3) Update frontend invocations to include timestamp cache-bust
-- `src/components/court/ReportForm.tsx`:
-  - change to `supabase.functions.invoke(\`get-weather?t=${Date.now()}\`, { body: { lat, lon, t: Date.now() } })`
-- `src/components/SplashScreen.tsx`:
-  - same timestamped invoke pattern for prefetch call
-- Keep existing UX behavior (weather badge + error states).
+**Fix 2 — Replace future-tab rain detection with probability-based tiers** (lines 435, 456, 965, 969):
 
-4) Expose exact JSON received for debugging
-- Add temporary debug logging in `ReportForm` (or guarded dev-only panel) to print/display the exact JSON returned from the function before any transformation.
-- Add function-side `console.log` for request coordinates and normalized payload to make logs useful.
+For **Now tab** (i === 0): Keep current logic — use actual `rain_1h > 0.5mm` threshold for active rain detection (raise from 0.1 to 0.5 for meaningful threshold).
 
-5) Validate end-to-end after implementation
-- Trigger weather fetch from `/court/leslie-beach-club`.
-- Confirm network requests include `?t=<timestamp>`.
-- Confirm function response JSON matches displayed/debugged payload.
-- Run read query:
-  - `select cache_key, temp, humidity, wind_speed, last_requested_at, updated_at from public.weather_cache order by updated_at desc limit 10;`
-- Re-fetch immediately and verify `updated_at` changes on each call.
+For **future tabs** (i > 0): Use `pop` (precipitation probability) from hourly data:
+- `pop > 0.50` → "Rain likely — forecast updating." (treat as WET, accumulate estimated rain)
+- `pop 0.20–0.50` → "Clearing conditions — drying in progress." (treat as transitional/recovery)
+- `pop < 0.20` → Normal drying/playability logic (Rule B/C/D)
 
-Technical details:
-- No changes to generated Supabase client file (`src/integrations/supabase/client.ts`), per platform constraints.
-- This approach keeps weather reads public while restricting cache-table writes to backend logic only.
-- If you want per-court cache rows instead of per-lat/lon rows, I can switch `cache_key` to `court_id` in the same implementation pass.
+The `rain_1h` value from the hourly forecast will still be used for accumulated rainfall calculations, but will no longer trigger "Active rain" status for future tabs.
+
+**Specific logic for future tabs:**
+```
+const pop = h?.pop ?? 0;
+const forecastRain = h?.rain_1h ?? 0;
+
+if (pop > 0.50) {
+  // Rain likely — accumulate forecast rain, stay WET
+  outputString = "Rain likely — forecast updating."
+}
+else if (pop >= 0.20 && inheritedState === "WET") {
+  // Clearing conditions with some probability
+  outputString = "Clearing conditions — drying in progress."
+}
+else {
+  // Normal Rule B/C/D logic (recovery or dry)
+}
+```
+
+This same probability-based approach will be mirrored in both the `forecastChain` (PlayabilityForecast component, ~line 435–564) and the `dryClockFuture` memo (~line 960–1005).
+
