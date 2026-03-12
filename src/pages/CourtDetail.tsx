@@ -675,6 +675,69 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
 
   const showOutput = overrideOutput ?? dryClockResult.outputString;
 
+  // Reasoning line: [Rain status] · [Wind] · [Ready time]
+  const reasoningLine = useMemo(() => {
+    const idx = parseInt(offset);
+    const h = idx === 0 ? null : (hourly[idx] ?? null);
+
+    // Wind segment
+    const windSpeed = idx === 0 ? (weatherData.wind_speed ?? 0) : (h?.wind_speed ?? weatherData.wind_speed ?? 0);
+    const windDeg = idx === 0 ? (weatherData as any).wind_deg : (h as any)?.wind_deg;
+    const windStr = windDeg != null
+      ? `${Math.round(windSpeed)} mph ${degToCardinal(windDeg)} wind`
+      : `${Math.round(windSpeed)} mph wind`;
+
+    // Rain status segment
+    let rainStatus: string;
+    if (idx === 0) {
+      const currentRain = weatherData.rain_1h ?? 0;
+      const desc = (weatherData.description ?? "").toLowerCase();
+      const isActive = (desc.includes("rain") || desc.includes("thunderstorm")) && currentRain > 0.5;
+      if (isActive) {
+        rainStatus = "Active rain";
+      } else if (currentRain > 0.05) {
+        rainStatus = "Light rain";
+      } else {
+        rainStatus = "No rain expected";
+      }
+    } else {
+      const pop = (h as any)?.pop ?? 0;
+      if (pop > 0.50) {
+        rainStatus = "Rain likely";
+      } else if (pop >= 0.20) {
+        // Scan forward for first hour where pop < 0.20
+        let clearHourLabel: string | null = null;
+        for (let j = idx + 1; j < hourly.length; j++) {
+          if (((hourly[j] as any)?.pop ?? 0) < 0.20) {
+            const dt = hourly[j]?.dt;
+            if (dt) {
+              clearHourLabel = new Date(dt * 1000).toLocaleTimeString([], { hour: "numeric", hour12: true }).toLowerCase();
+            }
+            break;
+          }
+        }
+        rainStatus = clearHourLabel ? `Rain clearing by ${clearHourLabel}` : "Rain clearing";
+      } else {
+        rainStatus = "No rain expected";
+      }
+    }
+
+    // Ready time segment
+    let readyStr: string;
+    const result = dryClockResult;
+    if (result.isActiveRain || result.outputString.includes("Rain likely")) {
+      readyStr = "Check back as conditions develop";
+    } else if (result.estimatedMinutes <= 0) {
+      readyStr = "Courts dry — no prep needed";
+    } else {
+      const time = result.estimatedPlayableTime ?? "—";
+      const effort = result.effortLevel ? ` with ${result.effortLevel.toLowerCase()}` : "";
+      readyStr = `Estimated ready by ${time}${effort}`;
+    }
+
+    return `${rainStatus} · ${windStr} · ${readyStr}`;
+  }, [offset, hourly, weatherData, dryClockResult]);
+
   const contextLabel = hasRecentReport && reportAgeText
     ? `Community report — ${reportAgeText}`
     : reportTier === "tier2"
