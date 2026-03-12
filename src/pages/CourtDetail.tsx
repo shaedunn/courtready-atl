@@ -997,16 +997,23 @@ export default function CourtDetail() {
       const humidity = h?.humidity ?? weatherData.humidity ?? 50;
       const wind = h?.wind_speed ?? weatherData.wind_speed ?? 5;
       const desc = h?.description ?? weatherData.description ?? "";
-      const isActive = (desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("thunderstorm")) && rain > 0.1;
-
+      const pop = (h as any)?.pop ?? 0;
       const prev = tabs[tabs.length - 1];
 
-      if (isActive || rain > 0.1) {
+      // Future tabs: use precipitation probability
+      if (pop > 0.50) {
         accRain = prev.accRain + rain;
         courtState = "WET";
-        tabs.push({ isActiveRain: true, courtState, accRain });
+        tabs.push({ isActiveRain: false, courtState, accRain });
         const r = computeDryClock(rain, humidity, wind, desc, drain, sun, null);
-        return { offset: off, result: { ...r, isActiveRain: true, estimatedMinutes: -1, outputString: "Active rain — check back as conditions develop." } };
+        return { offset: off, result: { ...r, isActiveRain: false, estimatedMinutes: -1, outputString: "Rain likely — forecast updating." } };
+      }
+
+      if (pop >= 0.20 && prev.courtState === "WET") {
+        courtState = "WET";
+        tabs.push({ isActiveRain: false, courtState, accRain: prev.accRain });
+        const r = computeDryClock(prev.accRain, humidity, wind, desc, drain, sun, null);
+        return { offset: off, result: { ...r, outputString: "Clearing conditions — drying in progress." } };
       }
 
       if (prev.courtState === "DRY") {
