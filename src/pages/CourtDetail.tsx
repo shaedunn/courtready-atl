@@ -396,7 +396,33 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
 }) {
   const [offset, setOffset] = useState("0");
   const [showDetails, setShowDetails] = useState(false);
-  const hourly = weatherData.hourly ?? [];
+  const [devMockRain, setDevMockRain] = useState(false);
+
+  // In dev: inject past-rain hourly entries to test backward-facing reasoning line
+  const hourly = useMemo(() => {
+    const real = weatherData.hourly ?? [];
+    if (!devMockRain || real.length === 0) return real;
+
+    const now = Math.floor(Date.now() / 1000);
+    const mockPast: HourlyEntry[] = [
+      { dt: now - 10800, temp: 62, humidity: 90, wind_speed: 22, wind_deg: 315, pop: 0.80, rain_1h: 1.2, description: "heavy rain" },
+      { dt: now - 7200, temp: 63, humidity: 85, wind_speed: 20, wind_deg: 320, pop: 0.60, rain_1h: 0.7, description: "moderate rain" },
+      { dt: now - 3600, temp: 64, humidity: 80, wind_speed: 18, wind_deg: 330, pop: 0.30, rain_1h: 0.3, description: "light rain" },
+    ];
+    // Ensure real entries have low rain so backward mode triggers
+    const dryReal = real.map((e, i) => i < 4 ? { ...e, rain_1h: 0, pop: 0.05 } : e);
+    return [...mockPast, ...dryReal];
+  }, [weatherData.hourly, devMockRain]);
+
+  // Dev toggle (only in development)
+  const devToggle = import.meta.env.DEV ? (
+    <button
+      onClick={() => setDevMockRain(v => !v)}
+      className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted/50 transition-colors"
+    >
+      {devMockRain ? "🧪 Mock rain ON" : "🧪 Mock rain OFF"}
+    </button>
+  ) : null;
 
   // Generate clock-time labels for tabs
   const tabLabels = useMemo(() => {
@@ -803,6 +829,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
             <span className="text-[10px] italic text-muted-foreground/60">
               Powered by Dry-Clock™
             </span>
+            {devToggle}
           </div>
           <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
             {tabLabels.map((label, i) => (
