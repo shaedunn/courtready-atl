@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      council_members: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
       court_logs: {
         Row: {
           author: string
@@ -49,32 +67,41 @@ export type Database = {
       court_status: {
         Row: {
           action_label: string | null
+          captain_name: string | null
           captain_note: string | null
           court_id: string
           created_at: string
           created_by: string | null
           effort_tags: string[] | null
+          help_needed: string | null
           id: string
+          report_to: string | null
           status: string
         }
         Insert: {
           action_label?: string | null
+          captain_name?: string | null
           captain_note?: string | null
           court_id: string
           created_at?: string
           created_by?: string | null
           effort_tags?: string[] | null
+          help_needed?: string | null
           id?: string
+          report_to?: string | null
           status: string
         }
         Update: {
           action_label?: string | null
+          captain_name?: string | null
           captain_note?: string | null
           court_id?: string
           created_at?: string
           created_by?: string | null
           effort_tags?: string[] | null
+          help_needed?: string | null
           id?: string
+          report_to?: string | null
           status?: string
         }
         Relationships: [
@@ -172,7 +199,7 @@ export type Database = {
           created_at: string
           home_team: string
           id: string
-          match_time: string
+          match_time: string | null
           share_slug: string
         }
         Insert: {
@@ -181,7 +208,7 @@ export type Database = {
           created_at?: string
           home_team: string
           id?: string
-          match_time: string
+          match_time?: string | null
           share_slug: string
         }
         Update: {
@@ -190,7 +217,7 @@ export type Database = {
           created_at?: string
           home_team?: string
           id?: string
-          match_time?: string
+          match_time?: string | null
           share_slug?: string
         }
         Relationships: [
