@@ -464,7 +464,10 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         continue;
       }
 
-      // (handled above)
+      // Step 2: Inherit state from previous tab
+      const prev = results[i - 1];
+      const inheritedState = prev.courtState;
+      const inheritedRain = prev.accumulatedRain;
 
       // Future tabs: use precipitation probability (pop) instead of rain intensity
       // Rule A-pop: pop > 50% → rain likely, accumulate forecast rain, stay WET
