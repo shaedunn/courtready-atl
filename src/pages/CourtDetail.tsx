@@ -829,6 +829,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
             <span className="text-[10px] italic text-muted-foreground/60">
               Powered by Dry-Clock™
             </span>
+            {devToggle}
           </div>
           <ToggleGroup type="single" value={offset} onValueChange={(v) => v && setOffset(v)} className="bg-secondary rounded-lg p-0.5">
             {tabLabels.map((label, i) => (
