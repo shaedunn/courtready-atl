@@ -91,12 +91,14 @@ export async function fetchWeather(lat: number, lon: number) {
     temp: number;
     humidity: number;
     wind_speed: number;
+    wind_deg?: number | null;
     rain_1h?: number;
     description?: string;
     icon?: string;
     hourly?: Array<{
       dt: number; temp: number; humidity: number;
-      wind_speed: number; pop: number; rain_1h: number;
+      wind_speed: number; wind_deg?: number | null;
+      pop: number; rain_1h: number;
       description?: string;
     }>;
   };
