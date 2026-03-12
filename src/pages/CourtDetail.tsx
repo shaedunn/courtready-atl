@@ -792,6 +792,9 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         <p className={`text-lg font-bold font-heading leading-snug ${finalTextColor}`}>
           {showOutput}
         </p>
+        <p className="text-sm text-muted-foreground leading-snug">
+          {reasoningLine}
+        </p>
 
         {!overrideOutput && dryClockResult.isActiveRain && (
           <p className="text-xs text-destructive/80">
