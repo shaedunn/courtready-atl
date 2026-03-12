@@ -1,54 +1,44 @@
 
-Goal: remove any chance of stale weather responses, expose the exact payload shape, and persist every weather call to a backend cache table.
 
-What I verified in the current code/runtime:
-- The app is already calling the live backend function via `supabase.functions.invoke("get-weather")` (no local `/functions/get-weather` route found).
-- Current function response shape (live call):
-  `{"description":"scattered clouds","humidity":88,"icon":"03n","rain_1h":0,"temp":59.83,"wind_speed":0}`
-- There is no `weather_cache` table in the database right now.
-- `get-weather` currently does not write to the database at all (no upsert logic exists).
+## Plan: Add Reasoning Line Beneath Forecast Output
 
-Implementation plan:
+### Summary
+Add a single muted reasoning line below the main Dry-Clock forecast string showing: `[Rain status] · [Wind] mph [Direction] · [Ready time or condition]`. Requires two files changed.
 
-1) Add a `weather_cache` table (schema migration)
-- Create `public.weather_cache` with fields like:
-  - `id` uuid PK
-  - `lat` double precision not null
-  - `lon` double precision not null
-  - `cache_key` text not null unique (derived from normalized lat/lon)
-  - `temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`
-  - `raw_payload` jsonb not null
-  - `last_requested_at` timestamptz not null default now()
-  - `updated_at` timestamptz not null default now()
-- Enable RLS and keep table write-protected from clients (no public insert/update policies), so only backend function writes.
+### Changes
 
-2) Update `get-weather` edge function to always write on every request
-- Parse cache-bust token from query `t` and/or body `t`.
-- Call OpenWeather with an added nonce param (e.g. `&_=${t || Date.now()}`) and `Cache-Control: no-store` request header.
-- Build normalized response object (`temp`, `humidity`, `wind_speed`, `rain_1h`, `description`, `icon`).
-- Initialize backend client inside function with server credentials and perform `upsert` into `weather_cache` using `cache_key` conflict target.
-- Always update `last_requested_at` + `updated_at` so each function call leaves an auditable write.
+**1. Edge Function — Pass `wind_deg` through (`supabase/functions/get-weather/index.ts`)**
 
-3) Update frontend invocations to include timestamp cache-bust
-- `src/components/court/ReportForm.tsx`:
-  - change to `supabase.functions.invoke(\`get-weather?t=${Date.now()}\`, { body: { lat, lon, t: Date.now() } })`
-- `src/components/SplashScreen.tsx`:
-  - same timestamped invoke pattern for prefetch call
-- Keep existing UX behavior (weather badge + error states).
+Add `wind_deg` to both the current-conditions payload and hourly items:
+- Top level: `wind_deg: data.current?.wind_deg ?? null`
+- Hourly: `wind_deg: h.wind_deg ?? null`
 
-4) Expose exact JSON received for debugging
-- Add temporary debug logging in `ReportForm` (or guarded dev-only panel) to print/display the exact JSON returned from the function before any transformation.
-- Add function-side `console.log` for request coordinates and normalized payload to make logs useful.
+**2. Frontend — Add `wind_deg` to type + pass through (`src/lib/supabase.ts`)**
 
-5) Validate end-to-end after implementation
-- Trigger weather fetch from `/court/leslie-beach-club`.
-- Confirm network requests include `?t=<timestamp>`.
-- Confirm function response JSON matches displayed/debugged payload.
-- Run read query:
-  - `select cache_key, temp, humidity, wind_speed, last_requested_at, updated_at from public.weather_cache order by updated_at desc limit 10;`
-- Re-fetch immediately and verify `updated_at` changes on each call.
+Update the `fetchWeather` return type to include `wind_deg` at top level and in hourly items.
 
-Technical details:
-- No changes to generated Supabase client file (`src/integrations/supabase/client.ts`), per platform constraints.
-- This approach keeps weather reads public while restricting cache-table writes to backend logic only.
-- If you want per-court cache rows instead of per-lat/lon rows, I can switch `cache_key` to `court_id` in the same implementation pass.
+**3. CourtDetail.tsx — Build and render reasoning line**
+
+Add a `useMemo` that computes the reasoning string for the selected tab:
+
+**Rain status segment:**
+- Now tab with `rain_1h > 0.5`: "Active rain"
+- Future tab with `pop > 0.50`: "Rain likely"
+- Future tab with `pop 0.20–0.50` and decreasing: "Rain clearing by [hour]" — scan forward through hourly to find first hour where `pop < 0.20`, format that hour
+- `pop < 0.20` or dry: "No rain expected"
+
+**Wind segment:**
+- `{Math.round(windSpeed)} mph {cardinal(windDeg)}` using a helper that maps degrees to N/NE/E/SE/S/SW/W/NW
+- Falls back to just `{speed} mph wind` if `wind_deg` is unavailable
+
+**Ready time segment:**
+- Reuse `dryClockResult.estimatedPlayableTime`, `dryClockResult.effortLevel`, and `dryClockResult.action` from the already-computed forecast chain
+- Active rain / rain likely → "Check back as conditions develop"
+- Dry → "Courts dry — no prep needed"
+- Recovery → "Estimated ready by {time} with {effort}"
+
+**Render location:** Directly after line 725 (`<p>` with `showOutput`), before the active-rain secondary text. Styled as `text-sm text-muted-foreground`. Only rendered when weather data is loaded.
+
+### No other changes
+- No changes to the Playability Forecast card layout, time tabs, status logic, or any other component.
+
