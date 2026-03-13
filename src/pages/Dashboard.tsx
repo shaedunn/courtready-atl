@@ -440,14 +440,25 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <button
-              onClick={() => navigate("/instructions")}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-accent/80 transition-colors ${!hasVisitedInstructions ? "animate-pulse" : ""}`}
-              aria-label="Instructions"
-            >
-              <BookOpen className={`w-4 h-4 ${!hasVisitedInstructions ? "text-lime" : "text-accent-foreground/70"}`} />
-              {!hasVisitedInstructions && <span className="text-[10px] font-semibold text-lime">Start Here</span>}
-            </button>
+            <div className="flex items-center gap-2">
+              {isCaptain && (
+                <button
+                  onClick={() => navigate("/captain")}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all active:scale-[0.97]"
+                  style={{ backgroundColor: "#0A2342", color: "#C9F000" }}
+                >
+                  Send the Call →
+                </button>
+              )}
+              <button
+                onClick={() => navigate("/instructions")}
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-accent/80 transition-colors ${!hasVisitedInstructions ? "animate-pulse" : ""}`}
+                aria-label="Instructions"
+              >
+                <BookOpen className={`w-4 h-4 ${!hasVisitedInstructions ? "text-lime" : "text-accent-foreground/70"}`} />
+                {!hasVisitedInstructions && <span className="text-[10px] font-semibold text-lime">Start Here</span>}
+              </button>
+            </div>
           </div>
           <p className="text-xs text-accent-foreground/70 tracking-wide uppercase mb-4">Atlanta Court Conditions</p>
           <div className="relative">
