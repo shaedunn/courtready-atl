@@ -72,6 +72,7 @@ export default function CaptainDashboard() {
   const [showSearch, setShowSearch] = useState(false);
   const [facilitySearch, setFacilitySearch] = useState("");
   const [councilMembers, setCouncilMembers] = useState<Array<{ id: string; display_name: string }>>([]);
+  const [councilLoadState, setCouncilLoadState] = useState<"loading" | "success" | "error">("loading");
 
   const { data: courts } = useQuery({
     queryKey: ["captain-courts"],
@@ -89,7 +90,18 @@ export default function CaptainDashboard() {
     let isMounted = true;
 
     const fetchCouncilMembers = async () => {
+      const envUrl = import.meta.env.VITE_SUPABASE_URL;
+      const derivedUrl = (() => {
+        try {
+          const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+          const payload = JSON.parse(atob(key.split(".")[1]));
+          return `https://${payload.ref}.supabase.co`;
+        } catch { return "decode-failed"; }
+      })();
+      console.log("[CaptainDashboard] env URL:", envUrl);
+      console.log("[CaptainDashboard] derived/active URL:", derivedUrl);
       console.log("[CaptainDashboard] fetching council_members on mount");
+
       const { data, error } = await supabase
         .from("council_members")
         .select("id, display_name")
@@ -100,19 +112,19 @@ export default function CaptainDashboard() {
       if (error) {
         console.error("[CaptainDashboard] council_members fetch error:", error);
         setCouncilMembers([]);
+        setCouncilLoadState("error");
         return;
       }
 
       const rows = data ?? [];
-      console.log("[CaptainDashboard] council_members rows:", rows);
+      console.log("[CaptainDashboard] council_members rows:", rows.length, rows.map(r => r.display_name));
       setCouncilMembers(rows);
+      setCouncilLoadState("success");
     };
 
     fetchCouncilMembers();
 
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   // Pinned courts only
@@ -315,7 +327,11 @@ export default function CaptainDashboard() {
         <label className="text-sm font-medium text-muted-foreground mb-1 block">
           Your Name
         </label>
-        {councilMembers && councilMembers.length > 0 ? (
+        {councilLoadState === "loading" ? (
+          <div className="h-10 rounded-md bg-muted animate-pulse flex items-center px-3">
+            <span className="text-sm text-muted-foreground">Loading captains…</span>
+          </div>
+        ) : councilLoadState === "success" && councilMembers.length > 0 ? (
           <Select
             value={captainName}
             onValueChange={(val) => {
@@ -344,6 +360,11 @@ export default function CaptainDashboard() {
             placeholder="Captain name"
           />
         )}
+        {/* Debug line — remove after confirming fix */}
+        <p className="text-[10px] text-muted-foreground/40 mt-1">
+          Backend: {(() => { try { const k = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string; return JSON.parse(atob(k.split(".")[1])).ref; } catch { return "?"; } })()}
+          {" • "}council_members: {councilLoadState === "loading" ? "…" : councilMembers.length}
+        </p>
       </div>
 
       <Separator />
