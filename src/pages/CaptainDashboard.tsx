@@ -90,7 +90,18 @@ export default function CaptainDashboard() {
     let isMounted = true;
 
     const fetchCouncilMembers = async () => {
+      const envUrl = import.meta.env.VITE_SUPABASE_URL;
+      const derivedUrl = (() => {
+        try {
+          const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+          const payload = JSON.parse(atob(key.split(".")[1]));
+          return `https://${payload.ref}.supabase.co`;
+        } catch { return "decode-failed"; }
+      })();
+      console.log("[CaptainDashboard] env URL:", envUrl);
+      console.log("[CaptainDashboard] derived/active URL:", derivedUrl);
       console.log("[CaptainDashboard] fetching council_members on mount");
+
       const { data, error } = await supabase
         .from("council_members")
         .select("id, display_name")
@@ -101,19 +112,19 @@ export default function CaptainDashboard() {
       if (error) {
         console.error("[CaptainDashboard] council_members fetch error:", error);
         setCouncilMembers([]);
+        setCouncilLoadState("error");
         return;
       }
 
       const rows = data ?? [];
-      console.log("[CaptainDashboard] council_members rows:", rows);
+      console.log("[CaptainDashboard] council_members rows:", rows.length, rows.map(r => r.display_name));
       setCouncilMembers(rows);
+      setCouncilLoadState("success");
     };
 
     fetchCouncilMembers();
 
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   // Pinned courts only
