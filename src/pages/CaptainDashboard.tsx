@@ -71,6 +71,7 @@ export default function CaptainDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [facilitySearch, setFacilitySearch] = useState("");
+  const [councilMembers, setCouncilMembers] = useState<Array<{ id: string; display_name: string }>>([]);
 
   const { data: courts } = useQuery({
     queryKey: ["captain-courts"],
@@ -84,17 +85,35 @@ export default function CaptainDashboard() {
     },
   });
 
-  const { data: councilMembers } = useQuery({
-    queryKey: ["council-members"],
-    queryFn: async () => {
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchCouncilMembers = async () => {
+      console.log("[CaptainDashboard] fetching council_members on mount");
       const { data, error } = await supabase
         .from("council_members")
         .select("id, display_name")
-        .order("display_name");
-      if (error) throw error;
-      return data;
-    },
-  });
+        .order("display_name", { ascending: true });
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.error("[CaptainDashboard] council_members fetch error:", error);
+        setCouncilMembers([]);
+        return;
+      }
+
+      const rows = data ?? [];
+      console.log("[CaptainDashboard] council_members rows:", rows);
+      setCouncilMembers(rows);
+    };
+
+    fetchCouncilMembers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Pinned courts only
   const pinnedCourts = useMemo(() => courts?.filter(c => pinnedIds.includes(c.id)) ?? [], [courts, pinnedIds]);
