@@ -47,6 +47,9 @@ const ACTION_LABELS: Record<string, string> = {
   red: "MATCH POSTPONED",
 };
 
+const UUID_V4_LIKE_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function generateSlug(): string {
   return Math.random().toString(36).substring(2, 10);
 }
