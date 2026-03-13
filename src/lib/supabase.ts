@@ -7,25 +7,18 @@ import type { Database } from "@/integrations/supabase/types";
 // is immune to stale VITE_SUPABASE_URL deploy secrets.
 // ---------------------------------------------------------------------------
 
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+// ---------------------------------------------------------------------------
+// Explicit production backend configuration
+// The app always connects to the production Supabase project where all real
+// data (courts, council_members, etc.) lives.
+// ---------------------------------------------------------------------------
 
-function deriveUrlFromKey(key: string): string {
-  try {
-    const payload = JSON.parse(atob(key.split(".")[1]));
-    return `https://${payload.ref}.supabase.co`;
-  } catch {
-    // Fallback to env var if JWT decode fails (should never happen)
-    return import.meta.env.VITE_SUPABASE_URL as string;
-  }
-}
+const PRODUCTION_URL = "https://racdnnitrapgqozxctsk.supabase.co";
+const PRODUCTION_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
-const derivedUrl = deriveUrlFromKey(supabaseKey);
+console.info("CourtReady backend (active):", PRODUCTION_URL);
 
-// Log for verification during pilot
-console.info("CourtReady backend (env):", import.meta.env.VITE_SUPABASE_URL);
-console.info("CourtReady backend (derived / active):", derivedUrl);
-
-export const supabase = createClient<Database>(derivedUrl, supabaseKey, {
+export const supabase = createClient<Database>(PRODUCTION_URL, PRODUCTION_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
