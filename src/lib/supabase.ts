@@ -76,7 +76,10 @@ export function setDisplayName(name: string) {
 }
 
 export async function fetchWeather(lat: number, lon: number) {
-  const { data, error } = await supabase.functions.invoke("get-weather", {
+  // Edge functions are deployed on Lovable Cloud, not the production data project.
+  // Use the auto-generated client which points to the correct functions host.
+  const { supabase: cloudClient } = await import("@/integrations/supabase/client");
+  const { data, error } = await cloudClient.functions.invoke("get-weather", {
     body: { lat, lon, t: Date.now() },
   });
   if (error) throw error;
