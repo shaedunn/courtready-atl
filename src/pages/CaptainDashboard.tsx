@@ -327,7 +327,11 @@ export default function CaptainDashboard() {
         <label className="text-sm font-medium text-muted-foreground mb-1 block">
           Your Name
         </label>
-        {councilMembers && councilMembers.length > 0 ? (
+        {councilLoadState === "loading" ? (
+          <div className="h-10 rounded-md bg-muted animate-pulse flex items-center px-3">
+            <span className="text-sm text-muted-foreground">Loading captains…</span>
+          </div>
+        ) : councilLoadState === "success" && councilMembers.length > 0 ? (
           <Select
             value={captainName}
             onValueChange={(val) => {
@@ -356,6 +360,11 @@ export default function CaptainDashboard() {
             placeholder="Captain name"
           />
         )}
+        {/* Debug line — remove after confirming fix */}
+        <p className="text-[10px] text-muted-foreground/40 mt-1">
+          Backend: {(() => { try { const k = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string; return JSON.parse(atob(k.split(".")[1])).ref; } catch { return "?"; } })()}
+          {" • "}council_members: {councilLoadState === "loading" ? "…" : councilMembers.length}
+        </p>
       </div>
 
       <Separator />
