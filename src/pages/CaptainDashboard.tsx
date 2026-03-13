@@ -180,26 +180,89 @@ export default function CaptainDashboard() {
       toast({ title: "No facility available", variant: "destructive" });
       return;
     }
+
+    const payload = {
+      court_id: activeCourt,
+      status: selectedStatus,
+      action_label: ACTION_LABELS[selectedStatus],
+      captain_note: captainNote || null,
+      effort_tags: effortTags,
+      created_by: captainName || "Captain",
+      captain_name: captainName || null,
+      help_needed: helpNeeded || null,
+      report_to: reportTo || null,
+    };
+
+    const expectedKeys = [
+      "court_id",
+      "status",
+      "action_label",
+      "captain_note",
+      "effort_tags",
+      "created_by",
+      "captain_name",
+      "help_needed",
+      "report_to",
+    ];
+
+    const payloadKeys = Object.keys(payload);
+    const missingKeys = expectedKeys.filter((key) => !payloadKeys.includes(key));
+    const extraKeys = payloadKeys.filter((key) => !expectedKeys.includes(key));
+    const courtIdLooksValidUuid = UUID_V4_LIKE_REGEX.test(payload.court_id);
+
+    console.info("[CaptainDashboard] publishStatus payload:", payload);
+    console.info("[CaptainDashboard] publishStatus schema-key-check:", {
+      expectedKeys,
+      payloadKeys,
+      missingKeys,
+      extraKeys,
+    });
+    console.info("[CaptainDashboard] publishStatus court_id validation:", {
+      court_id: payload.court_id,
+      isUuidLike: courtIdLooksValidUuid,
+    });
+    console.info("[CaptainDashboard] publishStatus table usage:", {
+      insertTable: "court_status",
+      referencesMatchesTable: false,
+    });
+
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("court_status").insert({
-        court_id: activeCourt,
-        status: selectedStatus,
-        action_label: ACTION_LABELS[selectedStatus],
-        captain_note: captainNote || null,
-        effort_tags: effortTags,
-        created_by: captainName || "Captain",
-        captain_name: captainName || null,
-        help_needed: helpNeeded || null,
-        report_to: reportTo || null,
+      const { data: courtLookup, error: courtLookupError } = await supabase
+        .from("courts")
+        .select("id")
+        .eq("id", payload.court_id)
+        .maybeSingle();
+
+      console.info("[CaptainDashboard] publishStatus court_id exists in courts:", {
+        court_id: payload.court_id,
+        exists: !!courtLookup,
+        courtLookup,
+        error: courtLookupError,
       });
-      if (error) throw error;
+
+      const { error } = await supabase.from("court_status").insert(payload);
+
+      if (error) {
+        console.error("[CaptainDashboard] publishStatus insert error (full):", {
+          error,
+          payload,
+          code: (error as any).code,
+          message: (error as any).message,
+          details: (error as any).details,
+          hint: (error as any).hint,
+        });
+        throw error;
+      }
+
+      console.info("[CaptainDashboard] publishStatus insert success", { payload });
       toast({ title: `Status: ${ACTION_LABELS[selectedStatus]}` });
       setPublishedStatus(selectedStatus);
       setCaptainNote("");
       queryClient.invalidateQueries({ queryKey: ["beacon-status"] });
       queryClient.invalidateQueries({ queryKey: ["beacon-timeline"] });
     } catch (e: any) {
+      console.error("[CaptainDashboard] publishStatus catch error:", e);
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
       setSubmitting(false);
