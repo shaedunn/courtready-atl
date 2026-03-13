@@ -72,6 +72,7 @@ export default function CaptainDashboard() {
   const [showSearch, setShowSearch] = useState(false);
   const [facilitySearch, setFacilitySearch] = useState("");
   const [councilMembers, setCouncilMembers] = useState<Array<{ id: string; display_name: string }>>([]);
+  const [councilLoadState, setCouncilLoadState] = useState<"loading" | "success" | "error">("loading");
 
   const { data: courts } = useQuery({
     queryKey: ["captain-courts"],
