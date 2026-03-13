@@ -172,11 +172,24 @@ export default function CaptainDashboard() {
   };
 
   const publishStatus = async () => {
+    const attemptId = Math.random().toString(36).slice(2, 8);
+    const attemptTs = new Date().toISOString();
+    const tablesTouched: string[] = [];
+
+    console.group(`[CaptainDashboard] Publish Attempt ${attemptId} @ ${attemptTs}`);
+
+    // 1) Form state snapshot
+    console.info("Form State:", { selectedStatus, activeCourt, captainName, effortTags, helpNeeded, reportTo, captainNote });
+
     if (!selectedStatus) {
+      console.warn("Aborted: no status selected");
+      console.groupEnd();
       toast({ title: "Select a status first", variant: "destructive" });
       return;
     }
     if (!activeCourt) {
+      console.warn("Aborted: no facility");
+      console.groupEnd();
       toast({ title: "No facility available", variant: "destructive" });
       return;
     }
@@ -193,79 +206,68 @@ export default function CaptainDashboard() {
       report_to: reportTo || null,
     };
 
-    const expectedKeys = [
-      "court_id",
-      "status",
-      "action_label",
-      "captain_note",
-      "effort_tags",
-      "created_by",
-      "captain_name",
-      "help_needed",
-      "report_to",
-    ];
+    // 2) Per-field audit
+    const fieldAudit = Object.entries(payload).reduce((acc, [key, val]) => {
+      acc[key] = { value: val, type: typeof val, isNull: val === null, isUndefined: val === undefined };
+      return acc;
+    }, {} as Record<string, any>);
+    const nullFields = Object.keys(fieldAudit).filter(k => fieldAudit[k].isNull);
+    const undefinedFields = Object.keys(fieldAudit).filter(k => fieldAudit[k].isUndefined);
+    console.info("Payload:", payload);
+    console.info("Field Audit:", fieldAudit);
+    console.info("Summary:", { nullFields, undefinedFields, nonNullCount: Object.keys(fieldAudit).length - nullFields.length });
 
-    const payloadKeys = Object.keys(payload);
-    const missingKeys = expectedKeys.filter((key) => !payloadKeys.includes(key));
-    const extraKeys = payloadKeys.filter((key) => !expectedKeys.includes(key));
-    const courtIdLooksValidUuid = UUID_V4_LIKE_REGEX.test(payload.court_id);
-
-    console.info("[CaptainDashboard] publishStatus payload:", payload);
-    console.info("[CaptainDashboard] publishStatus schema-key-check:", {
-      expectedKeys,
-      payloadKeys,
-      missingKeys,
-      extraKeys,
-    });
-    console.info("[CaptainDashboard] publishStatus court_id validation:", {
-      court_id: payload.court_id,
-      isUuidLike: courtIdLooksValidUuid,
-    });
-    console.info("[CaptainDashboard] publishStatus table usage:", {
-      insertTable: "court_status",
-      referencesMatchesTable: false,
-    });
+    // 3) UUID check
+    const isUuid = UUID_V4_LIKE_REGEX.test(payload.court_id);
+    console.info("court_id UUID check:", { court_id: payload.court_id, isUuid });
 
     setSubmitting(true);
     try {
+      // 4) courts lookup
+      tablesTouched.push("courts (SELECT lookup)");
+      console.info("→ Querying: courts");
       const { data: courtLookup, error: courtLookupError } = await supabase
         .from("courts")
         .select("id")
         .eq("id", payload.court_id)
         .maybeSingle();
+      console.info("courts lookup result:", { exists: !!courtLookup, courtLookup, error: courtLookupError });
 
-      console.info("[CaptainDashboard] publishStatus court_id exists in courts:", {
-        court_id: payload.court_id,
-        exists: !!courtLookup,
-        courtLookup,
-        error: courtLookupError,
-      });
-
+      // 5) court_status insert
+      tablesTouched.push("court_status (INSERT)");
+      console.info("→ Inserting into: court_status");
       const { error } = await supabase.from("court_status").insert(payload);
 
       if (error) {
-        console.error("[CaptainDashboard] publishStatus insert error (full):", {
-          error,
-          payload,
+        console.error("INSERT FAILED — Supabase Error:", {
+          raw: error,
           code: (error as any).code,
           message: (error as any).message,
           details: (error as any).details,
           hint: (error as any).hint,
+          name: (error as any).name,
+          stack: (error as any).stack,
+          serialized: JSON.parse(JSON.stringify(error)),
+          payloadSent: payload,
         });
         throw error;
       }
 
-      console.info("[CaptainDashboard] publishStatus insert success", { payload });
+      console.info("INSERT SUCCESS");
       toast({ title: `Status: ${ACTION_LABELS[selectedStatus]}` });
       setPublishedStatus(selectedStatus);
       setCaptainNote("");
       queryClient.invalidateQueries({ queryKey: ["beacon-status"] });
       queryClient.invalidateQueries({ queryKey: ["beacon-timeline"] });
     } catch (e: any) {
-      console.error("[CaptainDashboard] publishStatus catch error:", e);
+      console.error("Catch block error:", e);
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
       setSubmitting(false);
+      // 6) Table trace verdict
+      console.info("Tables touched in publish flow:", tablesTouched);
+      console.info("referencesMatchesTableInPublishFlow:", false);
+      console.groupEnd();
     }
   };
 
