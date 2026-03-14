@@ -1092,15 +1092,15 @@ export default function CourtDetail() {
   });
 
   const { data: weatherData, isLoading: weatherLoading, error: weatherError } = useQuery({
-    queryKey: ["weather-check", court?.latitude, court?.longitude],
+    queryKey: ["weather-check", court?.lat, court?.lon],
     queryFn: async () => {
-      if (!court?.latitude || !court?.longitude) return null;
-      console.log("[CourtDetail] Fetching weather for", court.latitude, court.longitude);
-      const result = await fetchWeather(court.latitude, court.longitude);
+      if (!court?.lat || !court?.lon) return null;
+      console.log("[CourtDetail] Fetching weather for", court.lat, court.lon);
+      const result = await fetchWeather(court.lat, court.lon);
       console.log("[CourtDetail] Weather result:", result);
       return result;
     },
-    enabled: !!court?.latitude && !!court?.longitude,
+    enabled: !!court?.lat && !!court?.lon,
     refetchInterval: 300000,
     staleTime: 240000,
     retry: 2,

@@ -299,12 +299,21 @@ export default function Dashboard() {
   const { data: allObservations = [] } = useQuery({
     queryKey: ["all-observations"],
     queryFn: async () => {
+      const observationColumns = "id,court_id,report_id,display_name,created_at";
+      console.log("[Dashboard] observations query:", {
+        table: "observations",
+        select: observationColumns,
+        filters: null,
+        order: "created_at.desc",
+      });
       const { data, error } = await supabase
         .from("observations")
-        .select("*")
-        .eq("status", "playable")
+        .select(observationColumns)
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("[Dashboard] observations query error:", JSON.stringify(error));
+        throw error;
+      }
       return data as unknown as Observation[];
     },
     refetchInterval: courtsError ? false : 30000,
