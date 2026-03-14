@@ -1246,6 +1246,19 @@ export default function CourtDetail() {
           />
         </div>
 
+        {weatherLoading && !weatherData && (
+          <div className="bg-card rounded-lg p-5 border border-border space-y-2">
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+        )}
+        {weatherError && !weatherData && (
+          <div className="bg-card rounded-lg p-4 border border-border flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground">Weather data temporarily unavailable. Playability forecast will appear when weather loads.</p>
+          </div>
+        )}
         {weatherData && (
           <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
