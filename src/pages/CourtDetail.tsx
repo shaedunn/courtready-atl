@@ -471,7 +471,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         // Step 1: Now tab — use actual current conditions + community reports
         const nowResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage, court.sun_exposure,
+          court.drainage_rating, court.sun_exposure_rating,
           recentReportRainfall,
         );
         // Active rain only if actual intensity > 0.5mm/hr
@@ -507,7 +507,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         const accRain = inheritedRain + rain;
         const baseResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
@@ -527,7 +527,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (pop >= 0.20 && inheritedState === "WET") {
         const baseResult = computeDryClock(
           inheritedRain, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
@@ -547,7 +547,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (inheritedState === "DRY") {
         const baseResult = computeDryClock(
           0, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
@@ -565,7 +565,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       // Calculate recovery time from accumulated rainfall using Dry-Clock formula
       const recoveryResult = computeDryClock(
         inheritedRain, humidity, wind, desc,
-        court.drainage, court.sun_exposure, null,
+        court.drainage_rating, court.sun_exposure_rating, null,
       );
 
       // How many hours since rain could have stopped? Find the last rainy tab before this one
@@ -591,7 +591,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
       if (remainingMinutes <= 0) {
         const baseResult = computeDryClock(
           0, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
@@ -634,7 +634,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
     }
 
     return results;
-  }, [hourly, weatherData, court.drainage, court.sun_exposure, recentReportRainfall]);
+  }, [hourly, weatherData, court.drainage_rating, court.sun_exposure_rating, recentReportRainfall]);
 
   const dryClockResult = forecastChain[parseInt(offset)] ?? forecastChain[0];
 
@@ -1103,11 +1103,11 @@ export default function CourtDetail() {
       weatherData.humidity ?? 50,
       weatherData.wind_speed ?? 5,
       weatherData.description ?? "",
-      court?.drainage ?? 3,
-      court?.sun_exposure ?? 3,
+      court?.drainage_rating ?? 3,
+      court?.sun_exposure_rating ?? 3,
       recentReportRainfall,
     );
-  }, [weatherData, court?.drainage, court?.sun_exposure, recentReportRainfall]);
+  }, [weatherData, court?.drainage_rating, court?.sun_exposure_rating, recentReportRainfall]);
 
   const dryClockFuture = useMemo(() => {
     if (!weatherData || !court) return [];
@@ -1115,8 +1115,8 @@ export default function CourtDetail() {
 
     // Build a stateful chain mirroring PlayabilityForecast logic
     type CourtState = "DRY" | "WET";
-    const drain = court.drainage ?? 3;
-    const sun = court.sun_exposure ?? 3;
+    const drain = court.drainage_rating ?? 3;
+    const sun = court.sun_exposure_rating ?? 3;
     const nowRain = weatherData.rain_1h ?? 0;
     const nowResult = computeDryClock(
       nowRain, weatherData.humidity ?? 50, weatherData.wind_speed ?? 5,
@@ -1182,7 +1182,7 @@ export default function CourtDetail() {
       tabs.push({ isActiveRain: false, courtState, accRain: prev.accRain });
       return { offset: off, result: { ...recoveryResult, estimatedMinutes: remaining } };
     });
-  }, [weatherData, court?.drainage, court?.sun_exposure, recentReportRainfall]);
+  }, [weatherData, court?.drainage_rating, court?.sun_exposure_rating, recentReportRainfall]);
 
   if (isLoading) {
     return (
@@ -1224,7 +1224,7 @@ export default function CourtDetail() {
             <h1 className="font-bold text-sm truncate text-accent-foreground">{court.name}</h1>
             <div className="flex items-center gap-1 mt-0.5">
               <MapPin className="w-3 h-3 text-accent-foreground/60 flex-shrink-0" />
-              <p className="text-xs text-accent-foreground/70 truncate">{court.location}</p>
+              <p className="text-xs text-accent-foreground/70 truncate">{court.address}</p>
             </div>
           </div>
           <button onClick={() => setShowDnaSheet(true)} className="p-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Facility Setup">
