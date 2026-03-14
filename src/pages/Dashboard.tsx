@@ -391,7 +391,7 @@ export default function Dashboard() {
   const filtered = courts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.location.toLowerCase().includes(search.toLowerCase())
+      c.address.toLowerCase().includes(search.toLowerCase())
   );
 
   const pinnedCourts = filtered.filter((c) => pinnedIds.includes(c.id));

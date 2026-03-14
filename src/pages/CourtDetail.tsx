@@ -1224,7 +1224,7 @@ export default function CourtDetail() {
             <h1 className="font-bold text-sm truncate text-accent-foreground">{court.name}</h1>
             <div className="flex items-center gap-1 mt-0.5">
               <MapPin className="w-3 h-3 text-accent-foreground/60 flex-shrink-0" />
-              <p className="text-xs text-accent-foreground/70 truncate">{court.location}</p>
+              <p className="text-xs text-accent-foreground/70 truncate">{court.address}</p>
             </div>
           </div>
           <button onClick={() => setShowDnaSheet(true)} className="p-2.5 rounded-lg hover:bg-accent/80 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Facility Setup">

@@ -45,14 +45,14 @@ export type SovereignCourt = {
   id: string;
   created_at: string;
   name: string;
-  location: string;
+  address: string;
   slug: string;
   surface: string;
   court_count: number;
   latitude: number | null;
   longitude: number | null;
-  sun_exposure: number;
-  drainage: number;
+  sun_exposure_rating: number;
+  drainage_rating: number;
   dna_note: string | null;
 };
 
