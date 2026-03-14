@@ -197,7 +197,6 @@ export default function CaptainDashboard() {
     const payload = {
       court_id: activeCourt,
       status: selectedStatus,
-      action_label: ACTION_LABELS[selectedStatus],
       captain_note: captainNote || null,
       effort_tags: effortTags,
       created_by: captainName || "Captain",
