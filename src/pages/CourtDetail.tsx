@@ -1015,7 +1015,23 @@ export default function CourtDetail() {
     queryFn: async () => {
       const { data, error } = await supabase.from("courts").select("*").eq("id", id!).single();
       if (error) throw error;
-      return data as unknown as SovereignCourt;
+      console.log("[CourtDetail] Court raw row:", JSON.stringify(data));
+      return {
+        id: data.id,
+        created_at: data.created_at,
+        name: data.name,
+        address: (data as any).address ?? (data as any).location ?? "",
+        slug: data.slug,
+        surface: data.surface,
+        court_count: data.court_count,
+        lat: (data as any).lat ?? (data as any).latitude ?? null,
+        lon: (data as any).lon ?? (data as any).longitude ?? null,
+        latitude: (data as any).latitude ?? (data as any).lat ?? null,
+        longitude: (data as any).longitude ?? (data as any).lon ?? null,
+        sun_exposure_rating: (data as any).sun_exposure_rating ?? (data as any).sun_exposure ?? 3,
+        drainage_rating: (data as any).drainage_rating ?? (data as any).drainage ?? 3,
+        dna_note: data.dna_note,
+      } as SovereignCourt;
     },
     enabled: !!id,
   });
