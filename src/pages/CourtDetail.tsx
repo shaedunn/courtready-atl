@@ -1064,20 +1064,25 @@ export default function CourtDetail() {
     refetchInterval: 30000,
   });
 
-  const { data: weatherData } = useQuery({
+  const { data: weatherData, isLoading: weatherLoading, error: weatherError } = useQuery({
     queryKey: ["weather-check", court?.latitude, court?.longitude],
     queryFn: async () => {
       if (!court?.latitude || !court?.longitude) return null;
-      try {
-        return await fetchWeather(court.latitude, court.longitude);
-      } catch {
-        return null;
-      }
+      console.log("[CourtDetail] Fetching weather for", court.latitude, court.longitude);
+      const result = await fetchWeather(court.latitude, court.longitude);
+      console.log("[CourtDetail] Weather result:", result);
+      return result;
     },
     enabled: !!court?.latitude && !!court?.longitude,
     refetchInterval: 300000,
     staleTime: 240000,
+    retry: 2,
   });
+
+  // Log weather errors for debugging
+  if (weatherError) {
+    console.error("[CourtDetail] Weather fetch failed:", weatherError);
+  }
 
   const currentRain1h = weatherData?.rain_1h ?? 0;
   const rainResetActive = latestObservation?.status === "playable" && currentRain1h > 0;
