@@ -1,16 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
 // ---------------------------------------------------------------------------
-// Self-healing Supabase client
-// Derives the correct project URL from the API key's JWT payload so the app
-// is immune to stale VITE_SUPABASE_URL deploy secrets.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Explicit production backend configuration
-// The app always connects to the production Supabase project where all real
-// data (courts, council_members, etc.) lives.
+// Explicit production backend configuration (DB queries only)
 // ---------------------------------------------------------------------------
 
 const PRODUCTION_URL = "https://racdnnitrapgqozxctsk.supabase.co";
@@ -78,11 +71,9 @@ export function setDisplayName(name: string) {
 }
 
 export async function fetchWeather(lat: number, lon: number) {
-  // Edge functions are deployed on Lovable Cloud, not the production data project.
-  // Use the auto-generated client which points to the correct functions host.
+  // Edge function calls must use Lovable Cloud client only.
   console.log("[fetchWeather] Calling edge function for", lat, lon);
-  const { supabase: cloudClient } = await import("@/integrations/supabase/client");
-  const { data, error } = await cloudClient.functions.invoke("get-weather", {
+  const { data, error } = await cloudSupabase.functions.invoke("get-weather", {
     body: { lat, lon, t: Date.now() },
   });
   if (error) {
