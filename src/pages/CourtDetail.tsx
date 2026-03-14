@@ -1066,14 +1066,25 @@ export default function CourtDetail() {
     queryKey: ["latest-observation", id],
     queryFn: async () => {
       if (!court) return null;
+      const observationColumns = "id,court_id,report_id,display_name,created_at";
+      console.log("[CourtDetail] observations query:", {
+        table: "observations",
+        select: observationColumns,
+        filters: { court_id: court.id },
+        order: "created_at.desc",
+        limit: 1,
+      });
       const { data, error } = await supabase
         .from("observations")
-        .select("*")
+        .select(observationColumns)
         .eq("court_id", court.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.error("[CourtDetail] observations query error:", JSON.stringify(error));
+        throw error;
+      }
       return data as unknown as Observation | null;
     },
     enabled: !!court,
