@@ -471,7 +471,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         // Step 1: Now tab — use actual current conditions + community reports
         const nowResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage, court.sun_exposure,
+          court.drainage_rating, court.sun_exposure_rating,
           recentReportRainfall,
         );
         // Active rain only if actual intensity > 0.5mm/hr
