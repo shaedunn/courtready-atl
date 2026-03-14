@@ -273,11 +273,16 @@ export default function Dashboard() {
   const { data: latestObservations = {} } = useQuery({
     queryKey: ["latest-observations"],
     queryFn: async () => {
+      console.log("[Dashboard] Fetching observations from:", (supabase as any).supabaseUrl || "production");
       const { data, error } = await supabase
         .from("observations")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("[Dashboard] Observations query error:", JSON.stringify(error));
+        throw error;
+      }
+      console.log("[Dashboard] Observations count:", data?.length, "first:", JSON.stringify(data?.[0]));
       const map: Record<string, Observation> = {};
       for (const o of data as unknown as Observation[]) {
         if (!map[o.court_id]) map[o.court_id] = o;
