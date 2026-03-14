@@ -507,7 +507,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
         const accRain = inheritedRain + rain;
         const baseResult = computeDryClock(
           rain, humidity, wind, desc,
-          court.drainage, court.sun_exposure, null,
+          court.drainage_rating, court.sun_exposure_rating, null,
         );
         results.push({
           ...baseResult,
