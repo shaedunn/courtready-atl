@@ -231,7 +231,22 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase.from("courts").select("*").order("name");
       if (error) throw error;
-      return data as unknown as SovereignCourt[];
+      console.log("[Dashboard] First court raw:", JSON.stringify(data?.[0]));
+      // Map production DB column names to SovereignCourt type
+      return (data ?? []).map((row: any) => ({
+        id: row.id,
+        created_at: row.created_at,
+        name: row.name,
+        address: row.location ?? row.address ?? "",
+        slug: row.slug,
+        surface: row.surface,
+        court_count: row.court_count,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        sun_exposure_rating: row.sun_exposure ?? row.sun_exposure_rating ?? 3,
+        drainage_rating: row.drainage ?? row.drainage_rating ?? 3,
+        dna_note: row.dna_note,
+      })) as SovereignCourt[];
     },
     placeholderData: keepPreviousData,
     retry: 2,
@@ -258,11 +273,16 @@ export default function Dashboard() {
   const { data: latestObservations = {} } = useQuery({
     queryKey: ["latest-observations"],
     queryFn: async () => {
+      console.log("[Dashboard] Fetching observations from:", (supabase as any).supabaseUrl || "production");
       const { data, error } = await supabase
         .from("observations")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("[Dashboard] Observations query error:", JSON.stringify(error));
+        throw error;
+      }
+      console.log("[Dashboard] Observations count:", data?.length, "first:", JSON.stringify(data?.[0]));
       const map: Record<string, Observation> = {};
       for (const o of data as unknown as Observation[]) {
         if (!map[o.court_id]) map[o.court_id] = o;
