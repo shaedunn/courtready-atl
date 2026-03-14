@@ -1115,8 +1115,8 @@ export default function CourtDetail() {
 
     // Build a stateful chain mirroring PlayabilityForecast logic
     type CourtState = "DRY" | "WET";
-    const drain = court.drainage ?? 3;
-    const sun = court.sun_exposure ?? 3;
+    const drain = court.drainage_rating ?? 3;
+    const sun = court.sun_exposure_rating ?? 3;
     const nowRain = weatherData.rain_1h ?? 0;
     const nowResult = computeDryClock(
       nowRain, weatherData.humidity ?? 50, weatherData.wind_speed ?? 5,
