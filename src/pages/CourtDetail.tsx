@@ -1064,20 +1064,25 @@ export default function CourtDetail() {
     refetchInterval: 30000,
   });
 
-  const { data: weatherData } = useQuery({
+  const { data: weatherData, isLoading: weatherLoading, error: weatherError } = useQuery({
     queryKey: ["weather-check", court?.latitude, court?.longitude],
     queryFn: async () => {
       if (!court?.latitude || !court?.longitude) return null;
-      try {
-        return await fetchWeather(court.latitude, court.longitude);
-      } catch {
-        return null;
-      }
+      console.log("[CourtDetail] Fetching weather for", court.latitude, court.longitude);
+      const result = await fetchWeather(court.latitude, court.longitude);
+      console.log("[CourtDetail] Weather result:", result);
+      return result;
     },
     enabled: !!court?.latitude && !!court?.longitude,
     refetchInterval: 300000,
     staleTime: 240000,
+    retry: 2,
   });
+
+  // Log weather errors for debugging
+  if (weatherError) {
+    console.error("[CourtDetail] Weather fetch failed:", weatherError);
+  }
 
   const currentRain1h = weatherData?.rain_1h ?? 0;
   const rainResetActive = latestObservation?.status === "playable" && currentRain1h > 0;
@@ -1241,6 +1246,19 @@ export default function CourtDetail() {
           />
         </div>
 
+        {weatherLoading && !weatherData && (
+          <div className="bg-card rounded-lg p-5 border border-border space-y-2">
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+        )}
+        {weatherError && !weatherData && (
+          <div className="bg-card rounded-lg p-4 border border-border flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground">Weather data temporarily unavailable. Playability forecast will appear when weather loads.</p>
+          </div>
+        )}
         {weatherData && (
           <PlayabilityForecast weatherData={weatherData as WeatherWithHourly} court={court} latestReport={latestReport} />
         )}
