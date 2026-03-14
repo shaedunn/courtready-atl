@@ -49,8 +49,10 @@ export type SovereignCourt = {
   slug: string;
   surface: string;
   court_count: number;
-  latitude: number | null;
-  longitude: number | null;
+  lat: number | null;
+  lon: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
   sun_exposure_rating: number;
   drainage_rating: number;
   dna_note: string | null;

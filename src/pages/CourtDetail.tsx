@@ -1015,7 +1015,23 @@ export default function CourtDetail() {
     queryFn: async () => {
       const { data, error } = await supabase.from("courts").select("*").eq("id", id!).single();
       if (error) throw error;
-      return data as unknown as SovereignCourt;
+      console.log("[CourtDetail] Court raw row:", JSON.stringify(data));
+      return {
+        id: data.id,
+        created_at: data.created_at,
+        name: data.name,
+        address: (data as any).address ?? (data as any).location ?? "",
+        slug: data.slug,
+        surface: data.surface,
+        court_count: data.court_count,
+        lat: (data as any).lat ?? (data as any).latitude ?? null,
+        lon: (data as any).lon ?? (data as any).longitude ?? null,
+        latitude: (data as any).latitude ?? (data as any).lat ?? null,
+        longitude: (data as any).longitude ?? (data as any).lon ?? null,
+        sun_exposure_rating: (data as any).sun_exposure_rating ?? (data as any).sun_exposure ?? 3,
+        drainage_rating: (data as any).drainage_rating ?? (data as any).drainage ?? 3,
+        dna_note: data.dna_note,
+      } as SovereignCourt;
     },
     enabled: !!id,
   });
@@ -1050,14 +1066,25 @@ export default function CourtDetail() {
     queryKey: ["latest-observation", id],
     queryFn: async () => {
       if (!court) return null;
+      const observationColumns = "id,court_id,report_id,display_name,created_at";
+      console.log("[CourtDetail] observations query:", {
+        table: "observations",
+        select: observationColumns,
+        filters: { court_id: court.id },
+        order: "created_at.desc",
+        limit: 1,
+      });
       const { data, error } = await supabase
         .from("observations")
-        .select("*")
+        .select(observationColumns)
         .eq("court_id", court.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.error("[CourtDetail] observations query error:", JSON.stringify(error));
+        throw error;
+      }
       return data as unknown as Observation | null;
     },
     enabled: !!court,
@@ -1065,15 +1092,15 @@ export default function CourtDetail() {
   });
 
   const { data: weatherData, isLoading: weatherLoading, error: weatherError } = useQuery({
-    queryKey: ["weather-check", court?.latitude, court?.longitude],
+    queryKey: ["weather-check", court?.lat, court?.lon],
     queryFn: async () => {
-      if (!court?.latitude || !court?.longitude) return null;
-      console.log("[CourtDetail] Fetching weather for", court.latitude, court.longitude);
-      const result = await fetchWeather(court.latitude, court.longitude);
+      if (!court?.lat || !court?.lon) return null;
+      console.log("[CourtDetail] Fetching weather for", court.lat, court.lon);
+      const result = await fetchWeather(court.lat, court.lon);
       console.log("[CourtDetail] Weather result:", result);
       return result;
     },
-    enabled: !!court?.latitude && !!court?.longitude,
+    enabled: !!court?.lat && !!court?.lon,
     refetchInterval: 300000,
     staleTime: 240000,
     retry: 2,
