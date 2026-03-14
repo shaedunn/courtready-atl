@@ -1,16 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
 // ---------------------------------------------------------------------------
-// Self-healing Supabase client
-// Derives the correct project URL from the API key's JWT payload so the app
-// is immune to stale VITE_SUPABASE_URL deploy secrets.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Explicit production backend configuration
-// The app always connects to the production Supabase project where all real
-// data (courts, council_members, etc.) lives.
+// Explicit production backend configuration (DB queries only)
 // ---------------------------------------------------------------------------
 
 const PRODUCTION_URL = "https://racdnnitrapgqozxctsk.supabase.co";
