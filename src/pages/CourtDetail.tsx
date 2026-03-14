@@ -634,7 +634,7 @@ function PlayabilityForecast({ weatherData, court, latestReport }: {
     }
 
     return results;
-  }, [hourly, weatherData, court.drainage, court.sun_exposure, recentReportRainfall]);
+  }, [hourly, weatherData, court.drainage_rating, court.sun_exposure_rating, recentReportRainfall]);
 
   const dryClockResult = forecastChain[parseInt(offset)] ?? forecastChain[0];
 
