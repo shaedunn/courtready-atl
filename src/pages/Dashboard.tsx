@@ -352,7 +352,7 @@ export default function Dashboard() {
     const scores: Record<string, number> = {};
     for (const court of courts) {
       const drainageMap: Record<number, number> = { 1: 1.5, 2: 1.2, 3: 1.0, 4: 0.8, 5: 0.6 };
-      const dm = drainageMap[court.drainage] ?? 1.0;
+      const dm = drainageMap[court.drainage_rating] ?? 1.0;
       const window = hourly.slice(0, 3);
 
       let rainPenalty = 0;
