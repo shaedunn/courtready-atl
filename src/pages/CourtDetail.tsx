@@ -1182,7 +1182,7 @@ export default function CourtDetail() {
       tabs.push({ isActiveRain: false, courtState, accRain: prev.accRain });
       return { offset: off, result: { ...recoveryResult, estimatedMinutes: remaining } };
     });
-  }, [weatherData, court?.drainage, court?.sun_exposure, recentReportRainfall]);
+  }, [weatherData, court?.drainage_rating, court?.sun_exposure_rating, recentReportRainfall]);
 
   if (isLoading) {
     return (
