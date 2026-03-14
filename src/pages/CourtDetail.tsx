@@ -1103,11 +1103,11 @@ export default function CourtDetail() {
       weatherData.humidity ?? 50,
       weatherData.wind_speed ?? 5,
       weatherData.description ?? "",
-      court?.drainage ?? 3,
-      court?.sun_exposure ?? 3,
+      court?.drainage_rating ?? 3,
+      court?.sun_exposure_rating ?? 3,
       recentReportRainfall,
     );
-  }, [weatherData, court?.drainage, court?.sun_exposure, recentReportRainfall]);
+  }, [weatherData, court?.drainage_rating, court?.sun_exposure_rating, recentReportRainfall]);
 
   const dryClockFuture = useMemo(() => {
     if (!weatherData || !court) return [];
