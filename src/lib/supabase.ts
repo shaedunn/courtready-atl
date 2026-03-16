@@ -71,7 +71,7 @@ export function setDisplayName(name: string) {
 }
 
 export async function fetchWeather(lat: number, lon: number) {
-  // Edge function calls must use Lovable Cloud client only.
+  // Edge function calls routed via Lovable Cloud client (v4 rebuild).
   console.log("[fetchWeather] Calling edge function for", lat, lon);
   const { data, error } = await cloudSupabase.functions.invoke("get-weather", {
     body: { lat, lon, t: Date.now() },
